@@ -1,0 +1,71 @@
+goals:
+
+I want to implement a centralized authentication server, with mysql backend,
+where users, groups, services and policies can be defined on for each server
+in a corporation.
+
+I want to provide a single command line tool called "pam2", for windows / unix, that
+administrators will use to manage the database from any machine.
+
+I want to provide a service that is installed on the server environment, that
+will bind the libpam-mysql and libnss-mysql to this tool.
+
+pam2 commands :
+
+service remove <service_name> [ from <host> ]
+
+	eg: service remove ssh from 10.200.17.14
+	eg: service remove ssh
+
+service add <service_name> [ [ on <host> ] | [ [ encryption <encryption_type> ] option <option_name> [ default <option_value> ], ... ] ]
+
+	eg: service add ssh encryption PLAIN \
+	    option HOME_DIR default "/users/${login_name}" \
+	    option LOGIN_HOURS_MIN 9 option LOGIN_HOURS_MAX 18
+
+	eg: service add mysql on host 10.12.17.23
+
+service set <service_name> [ encryption <encryption_type> ] [ [ on <host> ] [-]option <option_name> [ value <option_value> ], ... ]
+
+	eg: service set ssh encryption PASSWORD
+	eg: service set ssh on 10.123.23.23 -option HOME_DIR value "/users/${login_name}"
+
+service bind <service_name> [ on <host> ] to [ [-]?(user|group|-user|-group) <user_or_group_name>, ... ]
+
+	eg: service bind ssh on 10.123.123.23 to user andrei -user george -group admins
+	eg: service bind ssh -user andrei
+
+user add <user_name> [ on <host> ] [ [allow|deny] <service_name>, ... ]
+
+	eg: user add andrei on * allow ssh deny mysql allow mongo
+
+user password <user_name> [ to <password> ] [ for [ <service_name> ... ] ]
+	
+	eg: user password joe
+	eg: user password joe for mongo mysql ssh pam
+	eg: user password joe to "ThSA**#ESD" for mysql
+
+user enable|disable <user_name>
+	
+	eg: user enable joe
+	eg: user disable joe
+
+user member <user_name> [-]<group_name>
+	
+	eg: user member joe -administrators powerusers
+
+user set <user_name> [ real_name|email|enabled|password <value>, ...]
+    
+    eg: user set andrei real_name "Sfia Daniel Andrei" email sfia.andreidaniel@browserfs.com enabled 1 password "This is a password"
+
+group add|remove <group_name> [ (to|for) user(s)? [ <user_name> ,... ] ] | [ (to|from) service [ <service_name>, ... ] [ on <host> ] ]
+
+	eg: group add powerusers
+	eg: group remove pam
+	eg: group add powerusers to user andrei george michael joe
+	eg: group add powerusers to service pam ssh
+	eg: group remove administrators from service ssh
+	eg: group remove administrators from service ssh on host *
+
+
+INVALID USERS OR GROUP NAMES: "to", "from", "on", "for"
