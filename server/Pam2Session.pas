@@ -13,6 +13,8 @@ interface uses
     WebSocketSession,
     JSON,
     Logger,
+    QueryParser,
+    Pam2CommandParser,
     Pam2Manager;
 
 type

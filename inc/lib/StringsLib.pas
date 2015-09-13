@@ -17,6 +17,7 @@ function str_starts_with( S: AnsiString; What: AnsiString ): Boolean;
 function str_ends_with( S: AnsiString; What: AnsiString ): Boolean;
 function str_is_float( S: AnsiString ): Boolean;
 function str_is_int( S: AnsiString ): Boolean;
+function str_match_chars( S: AnsiString; chars: String ): Boolean;
 
 {
 
@@ -43,6 +44,23 @@ function str_is_int( S: AnsiString ): Boolean;
 function str_minimal_regex( S: AnsiString; Expr: AnsiString ): Boolean;
 
 implementation
+
+function str_match_chars( S: AnsiString; chars: String ): Boolean;
+var i: Integer;
+    len: Integer;
+begin
+    result := TRUE;
+    len := length(s);
+
+    for i := 1 to len do
+    begin
+        if POS( s[i], chars ) = 0 then
+        begin
+            result := FALSE;
+            break;
+        end;
+    end;
+end;
 
 function str_minimal_regex( S: AnsiString; Expr: AnsiString ): Boolean;
 var StartsWith: Boolean;

@@ -12,8 +12,9 @@ interface uses
     JSON
     {database support},
     sqldb, pqconnection, { IBConnnection, ODBCConn, }
-    mysql50conn, mysql55conn    
-    {end of database support};
+    mysql50conn, mysql55conn ,   
+    {end of database support}
+    Pam2Entities;
 
 type 
     
@@ -34,6 +35,7 @@ type
             _origins: TStrArray;
             
             SQLConn: TSqlConnection;
+            PAM: TPam2DB;
             
             function getServerPort(): Word;
             function getServerName(): AnsiString;
@@ -175,6 +177,8 @@ begin
     setLength( _origins, 0 );
     
     DoneCriticalSection( CS );
+
+    PAM.Free;
 
     SQLConn.Free;
 
@@ -331,6 +335,8 @@ begin
         password := sPass;
         open;
     end;
+
+    PAM := TPam2DB.Create( SQLConn );
 
 end;
 

@@ -6,6 +6,9 @@
         Password: AnsiString;
         Query: AnsiString;
         CmdId: LongInt;
+
+        Command: TPam2CommandParser;
+
     begin
 
         Name := 'QUERY';
@@ -14,7 +17,7 @@
         
         // Straight at constructor, we check if the _Args is valid,
         // IF it's authenticable via the ISockFTPManager, And send
-        // Back the data to the client.
+        // Back the data to the client.remove <service_name
         
         // {"cmd":"query","data":{"query":"a query","user":"username", "password": "password"},"id":2}
         
@@ -36,10 +39,16 @@
             Password := _Args.get('data').get('password', '');
             Query    := _Args.get('data').get('query', '');
             CmdID    := _Args.get( 'id', 0 );
-            
+    
+            Command     := TPam2CommandParser.Create( Query, userName, password );
+
+            Command.Exec();
+
             _Session.SendText( '{ "id": ' + IntToStr( CmdID ) + ', "ok": true }' );
+
+            Command.Free();
                 
-            Console.Log( 'Session #' + IntToStr( _Session.ID ) + ' [' + _Session.IP + '] : QUERY "' + Query + '" OK' );
+            //Console.Log( 'Session #' + IntToStr( _Session.ID ) + ' [' + _Session.IP + '] : QUERY "' + Query + '" OK' );
 
         end else
         begin
