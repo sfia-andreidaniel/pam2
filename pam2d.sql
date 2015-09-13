@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 5.5.44, for debian-linux-gnu (x86_64)
 --
--- Host: localhost    Database: pam
+-- Host: 127.0.0.1    Database: pam
 -- ------------------------------------------------------
 -- Server version	5.5.44-0ubuntu0.14.04.1
 
@@ -28,7 +28,7 @@ CREATE TABLE `group` (
   `group_enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`group_id`),
   UNIQUE KEY `group_name_UNIQUE` (`group_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -37,6 +37,7 @@ CREATE TABLE `group` (
 
 LOCK TABLES `group` WRITE;
 /*!40000 ALTER TABLE `group` DISABLE KEYS */;
+INSERT INTO `group` VALUES (1,'administrators',1),(2,'powerusers',1),(3,'users',1);
 /*!40000 ALTER TABLE `group` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -326,6 +327,8 @@ CREATE TABLE `user` (
   `real_name` char(64) DEFAULT NULL,
   `email` char(96) NOT NULL,
   `user_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `is_admin` tinyint(1) NOT NULL DEFAULT '0',
+  `password` varchar(32) NOT NULL,
   PRIMARY KEY (`user_id`),
   KEY `user_id` (`user_id`),
   KEY `email` (`email`)
@@ -338,7 +341,7 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES (1,'admin',NULL,'',0),(2,'luke',NULL,'',0);
+INSERT INTO `user` VALUES (1,'admin','The Boss','boss@business.com',1,1,'21232f297a57a5a743894a0e4a801fc3'),(2,'joe','John Doe','joe@business.com',1,0,'8ff32489f92f33416694be8fdc2d4c22');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -351,4 +354,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2015-09-12 13:55:01
+-- Dump completed on 2015-09-14  1:17:17
