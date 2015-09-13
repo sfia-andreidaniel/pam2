@@ -11,3 +11,4 @@ pam2d
 pam2d.exe
 pam2d.o
 install/*.msi
+*.txt~
