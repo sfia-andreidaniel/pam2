@@ -1,0 +1,13 @@
+*.o
+inc/lib/*.o
+server/*.o
+*.o
+inc/indy/*.o
+inc/lib/*.ppu
+inc/indy/*.ppu
+server/*.ppu
+*.ppu
+pam2d
+pam2d.exe
+pam2d.o
+install/*.msi
