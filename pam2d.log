@@ -1,0 +1,3 @@
+LOG [09:59:03 13/09/2015]: Database: mysql://pam2@127.0.0.1/pam
+LOG [09:59:03 13/09/2015]: Initializing server on  0.0.0.0 : 42763  ...
+LOG [09:59:03 13/09/2015]: Allowing origin:  *
