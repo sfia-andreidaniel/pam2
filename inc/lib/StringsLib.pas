@@ -18,6 +18,7 @@ function str_ends_with( S: AnsiString; What: AnsiString ): Boolean;
 function str_is_float( S: AnsiString ): Boolean;
 function str_is_int( S: AnsiString ): Boolean;
 function str_match_chars( S: AnsiString; chars: String ): Boolean;
+function str_join( arr: TStrArray; const delimiter: String = '' ): AnsiString;
 
 {
 
@@ -44,6 +45,27 @@ function str_match_chars( S: AnsiString; chars: String ): Boolean;
 function str_minimal_regex( S: AnsiString; Expr: AnsiString ): Boolean;
 
 implementation
+
+function str_join( arr: TStrArray; const delimiter: String = '' ): AnsiString;
+var i: Integer;
+    len: Integer;
+begin
+    result := '';
+    len := length( arr );
+    if ( len > 0 ) then
+    begin
+
+        for i := 0 to len - 1 do begin
+
+            result := result + arr[i];
+
+            if ( i < len - 1 ) then
+                result := result + delimiter;
+
+        end;
+
+    end;
+end;
 
 function str_match_chars( S: AnsiString; chars: String ): Boolean;
 var i: Integer;

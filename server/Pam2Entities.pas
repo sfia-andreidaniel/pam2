@@ -5,6 +5,8 @@ interface uses
 	classes,
 	StringsLib,
 	sysutils,
+	QueryParser,
+	JSON,
 	{database support}
     sqldb, pqconnection, { IBConnnection, ODBCConn, }
     mysql50conn, mysql55conn   
@@ -62,8 +64,16 @@ type TPam2User = class
 			property password   : AnsiString read _password   write setPassword;
 
 			constructor Create( _db: TPam2DB; uid: integer; login_name: AnsiString; real_name: AnsiString; user_email: AnsiString; user_enabled: boolean; is_admin: boolean; pam2_password: AnsiString; isSaved: boolean );
+			constructor Create( _db: TPam2DB );
+
 			function    Save(): Boolean;
+			
 			destructor  Free();
+			destructor  FreeWithoutSaving();
+
+			procedure snapshot();
+			procedure updateIdAfterInsertion();
+			procedure rollback( snapshotLine: AnsiString );
 
 	end;
 
@@ -94,8 +104,16 @@ type TPam2Group = class
 			property enabled   : Boolean    read _enabled    write setEnabled;
 
 			constructor Create( _db: TPam2DB; gid: integer; group_name: AnsiString; _is_enabled: Boolean; isSaved: boolean );
+			constructor Create( _db: TPam2DB );
+
 			function    Save(): Boolean;
+			
 			destructor  Free();
+			destructor  FreeWithoutSaving();
+
+			procedure snapshot();
+			procedure updateIdAfterInsertion();
+			procedure rollback( snapshotLine: AnsiString );
 
 	end;
 
@@ -178,8 +196,16 @@ type TPam2Host = class
 			property machineServices: TStrArray read getMachineServices write setMachineServices;
 
 			constructor Create( _db: TPam2DB; hid: integer; hname: AnsiString; defaultHost: boolean; isSaved: boolean );
+			constructor Create( _db: TPam2DB );
+
 			function    Save(): Boolean;
+			
 			destructor  Free();
+			destructor  FreeWithoutSaving();
+
+			procedure snapshot();
+			procedure updateIdAfterInsertion();
+			procedure rollback( snapshotLine: AnsiString );
 
 	end;
 
@@ -209,8 +235,16 @@ type TPam2Service = class
 			property serviceName : AnsiString read _service_name write setServiceName;
 
 			constructor Create( _db: TPam2DB; sid: integer; sname: AnsiString; isSaved: boolean );
+			constructor Create( _db: TPam2DB );
+
 			function    Save(): Boolean;
+
 			destructor  Free();
+			destructor  FreeWithoutSaving();
+
+			procedure snapshot();
+			procedure updateIdAfterInsertion();
+			procedure rollback( snapshotLine: AnsiString );
 
 	end;
 
@@ -233,6 +267,30 @@ type TPam2ServiceOption = class
 
 	end;
 
+type TPam2ExecutionContext = class
+
+		protected
+			db: TPam2DB;
+			admin: Boolean;
+			lockedToUserId: Integer;
+
+			// THE cmd_* functions should return a value allready encoded in JSON format,
+			// or raise an exception if an error occurs.
+
+			function cmd_host   ( query: TQueryParser ): AnsiString;
+			function cmd_user   ( query: TQueryParser ): AnsiString;
+			function cmd_service( query: TQueryParser ): AnsiString;
+			function cmd_group  ( query: TQueryParser ): AnsiString;
+			function cmd_select ( query: TQueryParser ): AnsiString;
+
+		public 
+			constructor Create( _db: TPam2DB; isAdmin: Boolean; lockedUserId: Integer );
+			destructor  Free();
+
+			function executeQuery( query: TQueryParser ): AnsiString;
+
+	end;
+
 type TPam2DB = class
 
 		protected
@@ -248,9 +306,14 @@ type TPam2DB = class
 			explanations : TStrArray;
 			errors       : TStrArray;
 
+			snapshot     : TStrArray;
+
 			procedure Load();
-			function getDefaultHost(): TPam2Host;
-			function generateRandomUserPassword(): AnsiString;
+			function  getDefaultHost(): TPam2Host;
+			function  generateRandomUserPassword(): AnsiString;
+
+			function  getAllUsersList(): TStrArray;
+			procedure doSQLStatement( statement: AnsiString );
 
 		public
 
@@ -258,6 +321,7 @@ type TPam2DB = class
 			destructor  Free();
 
 			property defaultHost: TPam2Host read getDefaultHost;
+			property allUsers: TStrArray read getAllUsersList;
 
 			function getUserById      ( userId: Integer ): TPam2User;
 			function getUserByName    ( loginName: AnsiString ): TPam2User;
@@ -290,6 +354,11 @@ type TPam2DB = class
 			procedure addSQLStatement ( statement: AnsiString );
 			procedure addExplanation  ( explanation: AnsiString );
 			procedure addError        ( error: AnsiString );
+			procedure addSnapshot     ( line: AnsiString );
+
+			// Context execution
+
+			function createContext    ( userName: ansiString; password: AnsiString ): TPam2ExecutionContext;
 
 			// CREATE FUNCTION
 			function createUser       ( loginName: AnsiString; 
@@ -309,6 +378,17 @@ type TPam2DB = class
 				                      ): TPam2Host;
 
 			function createService    ( serviceName: AnsiString ): TPam2Service;
+
+			// SNAPSHOT FUNCTIONALITY
+
+			procedure createSnapshot();
+			procedure debugSnapshot();
+			procedure rollbackSnapshot();
+			procedure discardSnapshot();
+
+			function  fetchSQLStatementResultAsInt( statement: AnsiString ): Integer;
+
+			procedure commit();
 
 	end;
 
@@ -490,6 +570,11 @@ implementation
 			else result := '';
 		end;
 
+		if ( ( result = 'to' ) or ( result = 'for' ) or ( result = 'from' ) or ( result = 'on' ) ) 
+		     and ( ( entityType = ENTITY_USER ) or ( entityType = ENTITY_GROUP ) )
+
+		then result := '';
+
 	end;
 
 
@@ -506,10 +591,412 @@ implementation
 		setLength( sqlStatements, 0 );
 		setLength( explanations, 0 );
 		setLength( errors, 0 );
+		setLength( snapshot, 0 );
 
 		Console.log('Loading PAM2DB');
 
 		Load();
+
+	end;
+
+	function TPam2DB.createContext( userName: ansiString; password: AnsiString ): TPam2ExecutionContext;
+	var mdPwd : AnsiString;
+		user  : TPam2User;
+	begin
+
+		result := NIL;
+
+		user := getUserByName( userName );
+
+		if user = NIL then
+			raise Exception.Create( 'User "' + userName + '" not found!' );
+
+		if user.enabled = FALSE then
+			raise Exception.Create( 'Account disabled' );
+
+		mdPwd := encryptPassword( password );
+
+		if mdPwd <> user.password then
+			raise Exception.Create( 'Bad password' );
+
+		console.log( user.loginName, user.admin );
+
+		result := TPam2ExecutionContext.Create( self, user.admin, user.id );
+
+	end;
+
+	function TPam2DB.getAllUsersList(): TStrArray;
+	var i: Integer;
+	    len: Integer;
+	begin
+
+		len := Length( users );
+		setLength( result, len );
+		
+		for i := 0 to len - 1 do
+		begin
+			result[ i ] := users[i].loginName;
+		end;
+
+	end;
+
+	procedure TPam2DB.createSnapshot();
+	
+	var i: Integer;
+	    len: Integer;
+
+	begin
+
+		Console.notice( 'TPam2DB: Snapshot Begin' );
+
+		if length( snapshot ) > 0 then
+			raise Exception.Create( 'Another snapshot is allready made!' );
+
+		len := Length( hosts );
+
+		for i := 0 to len - 1 do
+			hosts[i].snapshot();
+
+		len := Length( services );
+
+		for i := 0 to len - 1 do
+			services[i].snapshot();
+
+		len := Length( groups );
+
+		for i := 0 to len - 1 do
+			groups[i].snapshot();
+
+		len := Length( users );
+
+		for i := 0 to len - 1 do
+			users[i].snapshot();
+
+		Console.notice( 'TPam2DB: Snapshot Ended (' + IntToStr( Length( snapshot ) ) + ' lines)' );
+
+	end;
+
+	procedure TPam2DB.debugSnapshot();
+	var i: Integer;
+	    len: Integer;
+	begin
+		len := Length(snapshot);
+
+		Console.notice( 'DEBUG SNAPSHOT BEGIN' );
+		
+		for i:= 0 to Len - 1 do 
+			Console.notice( i, snapshot[i] );
+
+		Console.notice( 'DEBUG SNAPSHOT END' );
+
+	end;
+
+	procedure TPam2DB.discardSnapshot();
+	begin
+
+		if Length( snapshot ) > 0 then
+		begin
+
+			Console.notice( 'TPam2DB: Discarding spanshot' );
+			setLength( snapshot, 0 );
+			Console.notice( 'TPam2DB: Snapshot discarded' );
+
+		end else
+		begin
+			Console.notice( 'TPam2DB: Discarding snapshot: nothing to discard' );
+		end;
+
+	end;
+
+	function TPam2DB.fetchSQLStatementResultAsInt( statement: AnsiString ): Integer;
+	var FTransaction: TSQLTransaction;
+	    FQuery: TSqlQuery;
+	    I: Integer;
+	begin
+
+		result := -1;
+
+		FTransaction := NIL;
+		FQuery := NIL;
+
+		try
+
+			if not db.Connected then
+				db.Connected := TRUE;
+
+			FTransaction := TSQLTransaction.Create( NIL );
+			FTransaction.Database := db;
+			FTransaction.StartTransaction;
+
+			FQuery := TSqlQuery.Create( NIL );
+			FQuery.Database := db;
+			FQuery.Transaction := FTransaction;
+			FQuery.ReadOnly := TRUE;
+
+			FQuery.SQL.Clear();
+			FQuery.SQL.Add( statement );
+			FQuery.Open;
+
+			I := 0;
+
+			while ( not FQuery.EOF ) do
+			begin
+				
+				if ( i = 0 ) then
+				begin
+
+					result := FQuery.Fields[ 0 ].AsInteger;
+
+				end;
+
+				i := I + 1;
+
+				FQuery.Next;
+			end;
+
+
+
+			FTransaction.Free;
+			FQuery.Free;
+
+		except
+
+			On E: Exception Do
+			Begin
+
+
+				if FTransaction <> NIL then
+					FTransaction.Free;
+
+				if FQuery <> NIL then
+					FQuery.Free;
+
+				Console.error( 'Database error: ' + E.Message );
+
+			End;
+
+		end;
+
+	end;
+
+	procedure TPam2DB.doSQLStatement( statement: AnsiString );
+	
+	var FTransaction: TSQLTransaction;
+		FQuery: TSQLQuery;
+
+    begin
+
+    	FTransaction := NIL;
+    	FQuery := NIL;
+
+    	try
+
+	    	if not db.Connected then
+	    		db.Connected := TRUE;
+
+	    	FTransaction := TSQLTransaction.Create( NIL );
+	    	FQuery := TSQLQuery.Create( NIL );
+
+			FTransaction.Database := db;
+			FTransaction.StartTransaction;
+
+			FQuery.Database := db;
+			FQuery.Transaction := FTransaction;
+			FQuery.SQL.Clear;
+			FQuery.SQL.Add( statement );
+			FQuery.ExecSQL;
+
+			FTransaction.CommitRetaining;
+
+			FTransaction.Free;
+			FQuery.Free;
+
+		except
+
+			On E: Exception Do
+			begin
+
+				if FTransaction <> NIL then
+					FTransaction.Free;
+
+				if FQuery <> NIL then
+					FQuery.Free;
+
+				raise;
+
+			end;
+
+		end;
+
+	end;
+
+	procedure TPam2DB.commit();
+	var len: Integer;
+	    i: Integer;
+	begin
+		console.warn( 'COMMITING TO DATABASE BEGIN!' );
+
+		len := Length(users);
+		for i := 0 to Len - 1 do users[i].save();
+
+		len := Length(groups);
+		for i := 0 to Len - 1 do groups[i].save();
+
+		len := Length(hosts);
+		for i := 0 to Len - 1 do hosts[i].save();
+
+		len := Length(services);
+		for i := 0 to Len - 1 do services[i].save();
+
+		console.log( 'COMMIT: ' + IntToStr( Length( sqlStatements ) ) + ' statements' );
+
+		len := Length( sqlStatements );
+
+		for i := 0 to len - 1 do
+		begin
+			
+			doSQLStatement( sqlStatements[ i ] );
+
+		end;
+
+		setLength( sqlStatements, 0 );
+
+		console.log( 'COMMIT: DONE' );
+
+	end;
+
+	procedure TPam2DB.rollbackSnapshot();
+	
+	var i: Integer;
+	    len: Integer;
+	    dLen: Integer;
+
+	    cUser: TPam2User;       // 1
+	    cGroup: TPam2Group;     // 2
+	    cHost: TPam2Host;       // 3
+	    cService: TPam2Service; // 4
+
+	    dispatchTo: Byte;
+
+	begin
+
+		// FREE ALL RESOURCES SILENTLY
+
+		Console.notice( 'TPam2DB: Rollback Begin' );
+
+		// FREE HOSTS
+
+		len := Length( hosts );
+
+		for i:= 0 to len - 1 do
+			hosts[i].FreeWithoutSaving();
+
+		setLength( hosts, 0 );
+
+		// FREE SERVICES
+
+		len := Length( services );
+
+		for i:= 0 to Len - 1 do
+			services[i].FreeWithoutSaving();
+
+		setLength( services, 0 );
+
+		// FREE GROUPS
+
+		len := Length( groups );
+
+		for i:= 0 to len - 1 do
+			groups[ i ].FreeWithoutSaving();
+
+		setLength( groups, 0 );
+
+		// FREE USERS
+
+		len := Length( users );
+
+		for i:= 0 to len - 1 do
+			users[ i ].FreeWithoutSaving();
+
+		setLength( users, 0 );
+
+		// ROLLBACK
+
+		len := Length( snapshot );
+
+		dispatchTo := 0;
+
+		for i := 0 to len - 1 do
+		begin
+
+			if snapshot[i] = 'USER' then
+			begin
+
+				dLen := Length( users );
+				setLength( users, dLen + 1 );
+				users[ dLen ] := TPam2User.Create( self );
+				cUser := users[ dLen ];
+				dispatchTo := 1;
+
+			end else
+			
+			if snapshot[i] = 'GROUP' then
+			begin
+
+				dLen := Length( groups );
+				setLength( groups, dLen + 1 );
+				groups[ dLen ]:= TPam2Group.Create( self );
+				cGroup := groups[ dLen ];
+				dispatchTo := 2;
+
+			end else
+
+			if snapshot[i] = 'SERVICE' then
+			begin
+
+				dLen := Length( services );
+				setLength( services, dLen + 1 );
+				services[ dLen ] := TPam2Service.Create( self );
+				cService := services[ dLen ];
+				dispatchTo := 4;
+
+			end else
+
+			if snapshot[i] = 'HOST' then
+			begin
+
+				dLen := Length( hosts );
+				setLength( hosts, dLen + 1 );
+				hosts[ dLen ] := TPam2Host.Create( self );
+				cHost := hosts[ dLen ];
+				dispatchTo := 3;
+
+			end else
+
+			if snapshot[i] = 'END' then
+			begin
+
+				dispatchTo := 0;
+
+			end else
+			
+			begin
+
+				case dispatchTo of
+					1: cUser.rollback( snapshot[i] );
+					2: cGroup.rollback( snapshot[i] );
+					3: cHost.rollback( snapshot[i] );
+					4: cService.rollback( snapshot[i] )
+					else raise Exception.Create( 'Bad rollback dispatch state (' + IntToStr( dispatchTo ) + ')' );
+				end;
+
+			end;
+
+		end;
+
+		setLength( snapshot, 0 );
+
+		Console.notice( 'TPam2DB: Rollback Ended' );
 
 	end;
 
@@ -834,6 +1321,14 @@ implementation
 
 	end;
 
+	procedure TPam2DB.addSnapshot( line: AnsiString );
+	var len: Integer;
+	begin
+		len := Length( snapshot );
+		setLength( snapshot, len + 1 );
+		snapshot[ len ] := line;
+	end;
+
 	function TPam2DB.createUser ( 
 			loginName: AnsiString; 
 			const realName: AnsiString = ''; 
@@ -1129,7 +1624,7 @@ implementation
 				setLength( users, i + 1 );
 
 				//uid: integer; login_name: AnsiString; real_name: AnsiString; user_email: AnsiString; user_enabled: boolean; is_admin: boolean; pam2_password: AnsiString; isSaved: boolean
-				users[ i - 1 ] := TPam2User.Create(
+				users[ i ] := TPam2User.Create(
 					self,
 					FQuery.FieldByName( 'user_id' ).asInteger,
 					FQuery.FieldByName( 'login_name' ).asString,
@@ -1181,7 +1676,7 @@ implementation
 
 				
 				// _db: TPam2DB; gid: integer; group_name: AnsiString; isSaved: boolean
-				groups[ i - 1 ] := TPam2Group.Create(
+				groups[ i ] := TPam2Group.Create(
 					self,
 					FQuery.FieldByName( 'group_id' ).asInteger,
 					FQuery.FieldByName( 'group_name' ).asString,
@@ -1228,7 +1723,7 @@ implementation
 
 				
 				// _db: TPam2DB; hid: integer; hname: AnsiString; defaultHost: boolean; isSaved: boolean
-				hosts[ i - 1 ] := TPam2Host.Create(
+				hosts[ i ] := TPam2Host.Create(
 					self,
 					FQuery.FieldByName( 'id' ).asInteger,
 					FQuery.FieldByName( 'name' ).asString,
@@ -1271,10 +1766,11 @@ implementation
 
 			While not FQuery.EOF do
 			begin
+
 				setLength( services, i + 1 );
 				
 				// _db: TPam2DB; sid: integer; sname: AnsiString; isSaved: boolean
-				services[ i - 1 ] := TPam2Service.Create(
+				services[ i ] := TPam2Service.Create(
 					self,
 					FQuery.FieldByName( 'service_id' ).asInteger,
 					FQuery.FieldByName( 'service_name' ).asString,
@@ -1295,8 +1791,7 @@ implementation
 			Console.log('-', Length(users), 'users' );
 			Console.log('-', Length(groups), 'groups' );
 			Console.log('-', Length(hosts), 'hosts' );
-			Console.log('-', Length(services), 'services');
-
+			Console.log('-', Length(services), 'services' );
 
 		except
 
@@ -1369,10 +1864,30 @@ implementation
 		_real_name := real_name;
 		_email := user_email;
 		_enabled := user_enabled;
+		_password := pam2_password;
+		_admin := is_admin;
 
 		setLength( _groups, 0 );
 		setLength( _passwords, 0 );
 
+	end;
+
+	constructor TPam2User.Create( _db: TPam2DB );
+	begin
+		saved := TRUE;
+		needSave := FALSE;
+		deleted := FALSE;
+		db := _db;
+
+		_user_id := 0;
+		_login_name := '';
+		_real_name := '';
+		_email := '';
+		_enabled := FALSE;
+		_password := '';
+
+		setLength( _groups, 0 );
+		setLength( _passwords, 0 );
 	end;
 
 	function TPam2User.Save(): boolean;
@@ -1384,11 +1899,99 @@ implementation
 	destructor TPam2User.Free();
 	begin
 
-		if ( needSave ) then
+		if needSave = TRUE then
 			Save();
+
+		FreeWithoutSaving();
+
+	end;
+
+	destructor TPam2User.FreeWithoutSaving();
+	begin
 
 		setLength( _groups, 0 );
 		setLength( _passwords, 0 );
+
+	end;
+
+	procedure TPam2User.snapshot();
+	begin
+
+		db.addSnapshot( 'USER' );
+		db.addSnapshot( '_user_id: '     + IntToStr( _user_id ) );
+		db.addSnapshot( '_login_name: '  + _login_name );
+		db.addSnapshot( '_real_name: '   + _real_name );
+		db.addSnapshot( '_email: '       + _email );
+		db.addSnapshot( '_enabled: '     + IntToStr( Integer( _enabled ) ) );
+		db.addSnapshot( '_password: '    + _password );
+		db.addSnapshot( '_admin: '       + IntToStr( Integer( _admin ) ) );
+		db.addSnapshot( 'saved: '        + IntToStr( Integer( saved ) ) );
+		db.addSnapshot( 'needSave: '     + IntToStr( Integer( needSave ) ) );
+		db.addSnapshot( 'deleted: '      + IntToStr( Integer( deleted ) ) );
+		db.addSnapshot( 'END' );
+
+	end;
+
+	procedure TPam2User.rollback( snapshotLine: AnsiString );
+	var propName: AnsiString;
+	    propValue: AnsiString;
+	    dotPos: Integer;
+	    len: Integer;
+	begin
+
+		dotPos := Pos( ':', snapshotLine );
+
+		if dotPos = 0 then begin
+			raise Exception.Create( 'TPam2User.rollback: Bad snapshot line ("' + snapshotLine + '"). BUG.' );
+			exit;
+		end;
+
+		len := Length( snapshotLine );
+
+		propName := copy( snapshotLine, 1, dotPos - 1 );
+		propValue := copy( snapshotLine, dotPos + 2, len );
+
+		if propName = '_user_id' then
+		begin
+			_user_id := StrToInt( propValue );
+		end else
+		if propName = '_login_name' then
+		begin
+			_login_name := propValue;
+		end else
+		if propName = '_real_name' then
+		begin
+			_real_name := propValue;
+		end else
+		if propName = '_email' then
+		begin
+			_email := propValue;
+		end else
+		if propName = '_enabled' then
+		begin
+			_enabled := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = '_password' then
+		begin
+			_password := propValue;
+		end else
+		if propName = '_admin' then
+		begin
+			_admin := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'saved' then
+		begin
+			saved := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'needSave' then
+		begin
+			needSave := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'deleted' then
+		begin
+			deleted := Boolean( StrToInt( propValue ) );
+		end else
+		raise Exception.Create( 'TPam2User.rollback: don''t know how to restore property: "' + propName + '"!' );
 
 	end;
 
@@ -1541,10 +2144,120 @@ implementation
 		setLength( _users, 0 );
 	end;
 
+	constructor TPam2Group.Create( _db: TPam2DB );
+	begin
+
+		db := _db;
+
+		saved := TRUE;
+		needSave := FALSE;
+		deleted := FALSE;
+
+		_group_id := 0;
+		_group_name := '';
+		_enabled := FALSE;
+
+		setLength( _users, 0 );
+
+	end;
+
+	procedure TPam2Group.snapshot();
+	begin
+		db.addSnapshot( 'GROUP' );
+		db.addSnapshot( '_group_id: ' + IntToStr( _group_id ) );
+		db.addSnapshot( '_group_name: ' + _group_name );
+		db.addSnapshot( '_enabled: ' + IntToStr( Integer( _enabled ) ) );
+		db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
+		db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
+		db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
+		db.addSnapshot( 'END' );
+	end;
+
+	procedure TPam2Group.rollback( snapshotLine: AnsiString );
+	var propName: AnsiString;
+	    propValue: AnsiString;
+	    dotPos: Integer;
+	    len: Integer;
+	begin
+
+		dotPos := Pos( ':', snapshotLine );
+
+		if dotPos = 0 then begin
+			raise Exception.Create( 'TPam2Group.rollback: Bad snapshot line ("' + snapshotLine + '"). BUG.' );
+			exit;
+		end;
+
+		len := Length( snapshotLine );
+
+		propName := copy( snapshotLine, 1, dotPos - 1 );
+		propValue := copy( snapshotLine, dotPos + 2, len );
+
+		if propName = '_group_id' then
+		begin
+			_group_id := StrToInt( propValue );
+		end else
+		if propName = '_group_name' then
+		begin
+			_group_name := propValue;
+		end else
+		if propName = '_enabled' then
+		begin
+			_enabled := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'saved' then
+		begin
+			saved := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'needSave' then
+		begin
+			needSave := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'deleted' then
+		begin
+			deleted := Boolean( StrToInt( propValue ) );
+		end else
+		raise Exception.Create('TPam2Group.rollback: Don''t know how to restore property "' + propName + '"' );
+
+	end;
+
 	function TPam2Group.Save(): boolean;
 	begin
-		result := TRUE;
-		needSave := FALSE;
+
+		if ( needSave = FALSE ) then
+		begin
+			result := TRUE;
+		end else
+		begin
+
+			if not deleted then
+			begin
+
+				if ( _group_id = 0 ) then
+				begin
+					// DO INSERT
+					db.addSQLStatement( 'INSERT INTO `group` ( `group_name`, `group_enabled` ) VALUES ( "' + _group_name + '", ' + IntToStr( Integer( _enabled ) ) + ')' );
+				end else
+				begin
+					// DO UPDATE
+					db.addSQLStatement( 'UPDATE `group` SET `group_name` = "' + _group_name + '", `group_enabled` = ' + IntToStr( Integer( _enabled ) ) + ' WHERE `group_id` = ' + IntToStr( _group_id ) + ' LIMIT 1' );
+				end;
+
+			end else
+			begin
+
+				if ( _group_id > 0 ) then
+				begin
+					// DO DELETION
+					db.addSQLStatement( 'DELETE FROM `group` WHERE `group_id` = ' + IntToStr( _group_id ) + ' LIMIT 1' );
+				end;
+
+			end;
+
+			result := TRUE;
+			needSave := FALSE;
+		
+		end;
+
 	end;
 
 	destructor TPam2Group.Free();
@@ -1552,6 +2265,13 @@ implementation
 
 		if ( needSave ) then
 			Save();
+
+		FreeWithoutSaving();
+
+	end;
+
+	destructor TPam2Group.FreeWithoutSaving();
+	begin
 
 		setLength( _users, 0 );
 
@@ -1622,6 +2342,89 @@ implementation
 
 	end;
 
+	constructor TPam2Host.Create( _db: TPam2DB );
+	begin
+
+		db := _db;
+
+		saved := TRUE;
+		needSave := FALSE;
+		deleted := FALSE;
+
+		_host_id := 0;
+		_host_name := '';
+		_default_host := FALSE;
+
+		setLength( _services, 0 );
+		setLength( _group_policies, 0 );
+		setLength( _service_option_bindings, 0 );
+		setLength( _service_useroption_bindings, 0 );
+		setLength( _service_groupoption_bindgs, 0 );
+
+	end;
+
+	procedure TPam2Host.snapshot();
+	begin
+		db.addSnapshot( 'HOST' );
+		
+		db.addSnapshot( '_host_id: ' + IntToStr( _host_id ) );
+		db.addSnapshot( '_host_name: ' + _host_name );
+		db.addSnapshot( '_default_host: ' + IntToStr( Integer( _default_host ) ) );
+
+		db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
+		db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
+		db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
+		
+		db.addSnapshot( 'END' );
+	end;
+
+	procedure TPam2Host.rollback( snapshotLine: AnsiString );
+	var propName: AnsiString;
+	    propValue: AnsiString;
+	    dotPos: Integer;
+	    len: Integer;
+	begin
+
+		dotPos := Pos( ':', snapshotLine );
+
+		if dotPos = 0 then begin
+			raise Exception.Create( 'TPam2Host.rollback: Bad snapshot line ("' + snapshotLine + '". BUG.' );
+			exit;
+		end;
+
+		len := Length( snapshotLine );
+
+		propName := copy( snapshotLine, 1, dotPos - 1 );
+		propValue := copy( snapshotLine, dotPos + 2, len );
+
+		if propName = '_host_id' then
+		begin
+			_host_id := StrToInt( propValue );
+		end else
+		if propName = '_host_name' then
+		begin
+			_host_name := propValue;
+		end else
+		if propName = '_default_host' then
+		begin
+			_default_host := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'saved' then
+		begin
+			saved := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'needSave' then
+		begin
+			needSave := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'deleted' then
+		begin
+			deleted := Boolean( StrToInt( propValue ) );
+		end else
+		raise Exception.Create('TPam2Host.rollback: Don''t know how to restore property "' + propName + '"' );
+
+	end;
+
 	function TPam2Host.Save(): boolean;
 	begin
 		result := TRUE;
@@ -1630,9 +2433,16 @@ implementation
 
 	destructor TPam2Host.Free();
 	begin
-		if ( needSave ) then
+		
+		if needSave then
 			Save();
 
+		FreeWithoutSaving();
+
+	end;
+
+	destructor TPam2Host.FreeWithoutSaving();
+	begin
 		setLength( _services, 0 );
 
 		setLength( _group_policies, 0 );
@@ -1740,6 +2550,78 @@ implementation
 
 	end;
 
+	constructor TPam2Service.Create( _db: TPam2DB );
+	begin
+
+		db := _db;
+
+		saved := TRUE;
+		needSave := FALSE;
+		deleted := FALSE;
+
+		_service_id := 0;
+		_service_name := '';
+
+		setLength( _options, 0 );
+
+	end;
+
+	procedure TPam2Service.snapshot();
+	begin
+		db.addSnapshot( 'SERVICE' );
+
+		db.addSnapshot( '_service_id: ' + IntToStr( _service_id ) );
+		db.addSnapshot( '_service_name: ' + _service_name );
+		
+		db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
+		db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
+		db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
+		
+		db.addSnapshot( 'END' );
+	end;
+
+	procedure TPam2Service.rollback( snapshotLine: AnsiString );
+	var propName: AnsiString;
+	    propValue: AnsiString;
+	    dotPos: Integer;
+	    len: Integer;
+	begin
+
+		dotPos := Pos( ':', snapshotLine );
+
+		if dotPos = 0 then begin
+			raise Exception.Create( 'TPam2Service.rollback: Bad snapshot line ("' + snapshotLine + '". BUG.' );
+			exit;
+		end;
+
+		len := Length( snapshotLine );
+
+		propName := copy( snapshotLine, 1, dotPos - 1 );
+		propValue := copy( snapshotLine, dotPos + 2, len );
+
+		if propName = '_service_id' then
+		begin
+			_service_id := StrToInt( propValue );
+		end else
+		if propName = '_service_name' then
+		begin
+			_service_name := propValue;
+		end else
+		if propName = 'saved' then
+		begin
+			saved := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'needSave' then
+		begin
+			needSave := Boolean( StrToInt( propValue ) );
+		end else
+		if propName = 'deleted' then
+		begin
+			deleted := Boolean( StrToInt( propValue ) );
+		end else
+		raise Exception.Create( 'TPam2Service.rollback: Don''t know how to restore property "' + propName + '"' );
+
+	end;
 
 	function TPam2Service.Save(): Boolean;
 	begin
@@ -1753,6 +2635,12 @@ implementation
 		if ( needSave ) then
 			Save();
 	
+		FreeWithoutSaving();
+
+	end;
+
+	destructor TPam2Service.FreeWithoutSaving();
+	begin
 		setLength( _options, 0 );
 	end;
 
@@ -1806,6 +2694,390 @@ implementation
 		if ( needSave ) then
 			Save();
 	end;
+
+	constructor TPam2ExecutionContext.Create( _db: TPam2DB; isAdmin: Boolean; lockedUserId: Integer );
+	begin
+
+		db := _db;
+		admin := isAdmin;
+
+		if ( isAdmin ) then
+			Console.log( 'Create context with administrative privs' )
+		else
+			Console.log( 'Create context with limited privs' );
+
+		lockedToUserId := lockedUserId;
+
+	end;
+
+	destructor  TPam2ExecutionContext.Free();
+	begin
+		db := NIL;
+	end;
+
+	function TPam2ExecutionContext.executeQuery( query: TQueryParser ): AnsiString;
+	
+	var arg: AnsiString;
+
+	begin
+
+		try 
+
+			arg := LowerCase( query.nextArg() );
+
+			if arg = 'service' then
+			begin
+				result := cmd_service( query );
+			end else
+			if arg = 'user' then
+			begin
+				result := cmd_user( query );
+			end else
+			if arg = 'host' then
+			begin
+				result := cmd_host( query );
+			end else
+			if arg = 'group' then
+			begin
+				result := cmd_group( query );
+			end else
+			if arg = 'select' then
+			begin
+				result := cmd_select( query );
+			end else
+				raise Exception.Create( 'Invalid command: "' + arg + '" ( argument index: 0 )' );
+
+		except
+
+			On E: Exception Do
+			begin
+
+				raise;
+			end;
+		end;
+	end;
+
+	const OP_ADD    = 1;
+	      OP_REMOVE = 0;
+
+	function TPam2ExecutionContext.cmd_host   ( query: TQueryParser ): AnsiString;
+	begin
+		raise Exception.Create( 'host command is not implemented' );
+	end;
+
+	function TPam2ExecutionContext.cmd_user   ( query: TQueryParser ): AnsiString;
+	begin
+		raise Exception.Create( 'user command is not implemented' );
+	end;
+
+	function TPam2ExecutionContext.cmd_service( query: TQueryParser ): AnsiString;
+	begin
+		raise Exception.Create( 'service command is not implemented' );
+	end;
+
+	function TPam2ExecutionContext.cmd_group  ( query: TQueryParser ): AnsiString;
+	
+	var operation: byte;
+	    arg: AnsiString;
+
+	    groupName: AnsiString; // group name, unnormalized
+	    gName: AnsiString;     // normalized group name
+
+	    tokWho: AnsiString;
+
+	    subjects: TStrArray;
+	    len: Integer;
+
+	    uArg: AnsiString;
+
+	    isWildCard: Boolean;
+
+	begin
+		
+		arg := LowerCase( query.nextArg() );
+
+		setLength( subjects, 0 );
+
+		if arg = '' then raise Exception.Create( 'Missing token ( expected "add" or "remove" ), at index 1' );
+
+		if arg = 'add' then
+			operation := OP_ADD
+		else
+		if arg = 'remove' then
+			operation := OP_REMOVE
+		else
+			raise Exception.Create( 'Wrong predicate ( expected "add" or "remove" but got "' + arg + '" ), at index 1' );
+
+		groupName := query.nextArg();
+		gName := normalize( groupName, ENTITY_GROUP );
+
+		if groupName = '' then
+			raise Exception.Create( 'Missing token ( expected a <group_name> ), at index 2' );
+
+		if gName = '' then
+			raise Exception.Create( 'Illegal group name "' + groupName + '", at index 2' );
+
+
+		arg := LowerCase( query.nextArg() );
+
+		if arg <> '' then
+		begin
+
+			if ( arg <> 'to' ) and ( arg <> 'for' ) and ( arg <> 'from' ) then
+				raise Exception.Create( 'Illegal token ( expected "to", "for", or "from" ), at index 3 [0]' );
+
+			tokWho := arg;
+
+			arg := LowerCase( query.nextArg() );
+
+			if ( arg = 'user' ) or ( arg = 'users' ) then
+			begin
+
+				if ( tokWho <> 'to' ) and ( tokWho <> 'for' ) then
+					raise Exception.Create( 'Illegal token "' + tokWho + '" ( expected "to" or "for" ), at index 3 [1]' );
+
+				len := 0;
+				isWildCard := FALSE;
+
+				// read subjects ( users )
+
+				repeat
+
+					arg := LowerCase( query.nextArg() );
+
+					uArg := trim( arg );
+
+					if ( uArg = '' ) then 
+					begin
+						break;
+					end else
+					if ( uArg = '*' ) then begin
+						// Add or remove group to all users.
+						if len > 0 then begin
+							raise Exception.Create( 'A wildcard ("*") cannot be used in conjunction with other user names!' );
+						end else
+						begin
+							subjects := db.allUsers;
+							len := Length( subjects );
+							isWildCard := TRUE;
+						end;
+					end else
+					begin
+
+						uArg := normalize( arg, ENTITY_USER );
+
+						if uArg <> '' then
+						begin
+
+							if isWildCard then
+							begin
+								raise Exception.Create( 'A wildcard ("*") cannot be used in conjunction with other user names!' );
+							end else
+							begin
+
+								console.error( 'ADD: ', uArg );
+
+								len := len + 1;
+								setLength( subjects, len );
+								subjects[ len - 1 ] := uArg;
+							end;
+
+						end else
+						begin
+							raise Exception.Create('Illegal user name "' + arg + '"' );
+						end;
+
+					end;
+
+				until false;
+
+				if ( not isWildCard ) and ( len = 0 ) then
+					raise Exception.Create( 'Expected a user list separated by space' );
+
+				if admin = FALSE then
+					raise Exception.Create( 'Access denied ( command works only in administrative context )!');
+
+				// Good. We've got the subjects
+
+				if ( operation = OP_ADD ) then
+				begin
+
+					if ( isWildCard ) then
+					begin
+
+						result := '{"explain": ' + json_encode( 'Make all users (' + IntToStr( len ) + ') members of group "' + gName + '"' ) + '}';
+
+					end else
+					begin
+
+						if ( len = 1 ) then
+							result := '{"explain": ' + json_encode( 'Make user "' + str_join( subjects, '", "' ) + '" member of group "' + gName + '"' ) + '}'
+						else
+							result := '{"explain": ' + json_encode( 'Make users "' + str_join( subjects, '", "' ) + '" members of group "' + gName + '"' ) + '}';
+
+					end;
+
+				end else
+				begin
+
+					if ( isWildCard ) then
+					begin
+
+						result := '{"explain": ' + json_encode( 'Remove all users (' + IntToStr( len ) + ') from group "' + gName + '"' ) + '}';
+
+					end else
+					begin
+
+						if ( len = 1 ) then
+							result := '{"explain": ' + json_encode( 'Remove user "' + str_join( subjects, '", "' ) + '" from group "' + gName + '"' ) + '}'
+						else
+							result := '{"explain": ' + json_encode( 'Remove users "' + str_join( subjects, '", "' ) + '" from group "' + gName + '"' ) + '}';
+
+					end;
+
+				end;
+
+
+			end else
+			if ( arg = 'service' ) or ( arg = 'services' ) then
+			begin
+
+
+
+			end;
+
+		end else
+		begin
+
+			if admin = FALSE then
+				raise Exception.Create( 'Access denied ( command works only in administrative context )!');
+
+			// ADD GROUP gName to system.
+			if ( operation = OP_ADD ) then
+			begin
+
+				if db.groupExists( gName ) then
+					raise Exception.Create( 'A group with the same name allready exist!' );
+
+				db.createSnapshot();
+
+				try
+
+					db.createGroup( gName );
+
+					db.commit();
+
+					db.discardSnapshot();
+
+					result := '{"explain": ' + json_encode( 'Create group "' + gName + '"' ) + '}';
+
+				except
+					On E: Exception do
+					begin
+						db.rollbackSnapshot();
+						raise;
+					end
+				end;
+				
+
+			end else
+			begin
+
+				if not db.groupExists( gName ) then
+					raise Exception.Create('Group "' + gName + '" does not exist!' );
+
+				result := '{"explain": ' + json_encode( 'Remove group "' + gName + '"' ) + '}';
+
+			end;
+
+		end;
+
+
+
+	end;
+
+	function TPam2ExecutionContext.cmd_select ( query: TQueryParser ): AnsiString;
+	begin
+		raise Exception.Create( 'select command is not implemented' );
+	end;
+
+	procedure TPam2User.updateIdAfterInsertion();
+	var i: Integer;
+	begin
+		
+		if (not deleted) and (_user_id = 0) then
+		begin
+			i := db.fetchSQLStatementResultAsInt('SELECT user_id FROM user WHERE login_name = "' + _login_name + '" LIMIT 1' );
+
+			if i > 0 then
+			begin
+				_user_id := i;
+				Console.log('Updated id of user ' + _login_name + ' to ' + IntToStr( _user_id ) );
+			end else
+			begin
+				Console.error('Failed to update id of user ' + _login_name );
+			end;
+		end;
+
+	end;
+
+	procedure TPam2Service.updateIdAfterInsertion();
+	var i: Integer;
+	begin
+		
+		if (not deleted) and (_service_id = 0) then
+		begin
+			i := db.fetchSQLStatementResultAsInt('SELECT service_id FROM service WHERE service_name = "' + _service_name + '" LIMIT 1' );
+
+			if i > 0 then
+			begin
+				_service_id := i;
+				Console.log('Updated id of service ' + _service_name + ' to ' + IntToStr( _service_id ) );
+			end else
+			begin
+				Console.error('Failed to update id of service ' + _service_name );
+			end;
+		end;
+	end;
+
+	procedure TPam2Group.updateIdAfterInsertion();
+	var i: Integer;
+	begin
+	
+		if (not deleted) and (_group_id = 0) then
+		begin
+			i := db.fetchSQLStatementResultAsInt('SELECT group_id FROM `group` WHERE group_name = "' + _group_name + '" LIMIT 1' );
+
+			if i > 0 then
+			begin
+				_group_id := i;
+				Console.log('Updated id of group ' + _group_name + ' to ' + IntToStr( _group_id ) );
+			end else
+			begin
+				Console.error('Failed to update id of group ' + _group_name );
+			end;
+		end;
+	end;
+
+	procedure TPam2Host.updateIdAfterInsertion();
+	var i: Integer;
+	begin
+	
+		if (not deleted) and (_host_id = 0) then
+		begin
+			i := db.fetchSQLStatementResultAsInt('SELECT id FROM `host` WHERE name = "' + _host_name + '" LIMIT 1' );
+
+			if i > 0 then
+			begin
+				_host_id := i;
+				Console.log('Updated id of host ' + _host_name + ' to ' + IntToStr( _host_id ) );
+			end else
+			begin
+				Console.error('Failed to update id of host ' + _host_name );
+			end;
+		end;
+	end;
+
 
 initialization
 	

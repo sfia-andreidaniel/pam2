@@ -46,6 +46,9 @@ type
     
     function json_decode( data: AnsiString ): TJSON;
     function json_encode( data: AnsiString ): AnsiString;
+    function json_encode( data: Boolean ): AnsiString;
+    function json_encode( data: Integer ): AnsiString;
+    function json_encode( data: Double ): AnsiString;
 
 implementation
 
@@ -412,7 +415,8 @@ implementation
                     #10: result := result + '\n';
                     #9 : result := result + '\t';
                     '\': result := result + '\\';
-                    #0 : result := result + '\0'
+                    #0 : result := result + '';
+                    '"': result := result + '\"'
                     else
                         result := result + data[i];
                 end;
@@ -423,6 +427,24 @@ implementation
             
         end;
     
+    end;
+
+    function json_encode( data: Boolean ): AnsiString;
+    begin
+        if data = TRUE then
+            result := 'true'
+        else
+            result := 'false';
+    end;
+
+    function json_encode( data: Integer ): AnsiString;
+    begin
+        result := IntToStr( data );
+    end;
+
+    function json_encode( data: Double ): AnsiString;
+    begin
+        result := FloatToStrF( data, ffGeneral, 15, 0 );
     end;
     
 end.

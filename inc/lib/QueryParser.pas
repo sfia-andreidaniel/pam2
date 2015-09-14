@@ -17,6 +17,8 @@ type TQueryParser = Class
 
 		count: integer;
 
+		property    raw: TStrArray read args;
+
 		constructor Create( query: AnsiString );
 
 		function getArg( index: integer ): AnsiString;
@@ -77,7 +79,7 @@ implementation
 		iEsc := FALSE;
 		iQuote := FALSE;
 
-		for i := 0 to queryLen - 1 do
+		for i := 1 to queryLen do
 		begin
 			c := query[i];
 

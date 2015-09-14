@@ -273,12 +273,7 @@ function display_response( response ) {
 		return 1;
 	}
 
-	if ( !response.ok ) {
-		process.stderr.write('Error: ' + ( response.error || 'Unknown error' ) );
-		return 1;
-	}
-
-	console.log('command completed successfully');
-
-	return 0;
+	console.log( JSON.stringify( response, undefined, 4 ) );
+	
+	return !response || !response.ok ? 1 : 0;
 }

@@ -35,7 +35,6 @@ type
             _origins: TStrArray;
             
             SQLConn: TSqlConnection;
-            PAM: TPam2DB;
             
             function getServerPort(): Word;
             function getServerName(): AnsiString;
@@ -51,7 +50,9 @@ type
             procedure OUT_CS();
         
         public
-        
+ 
+            PAM: TPam2DB;
+       
             constructor Create;
         
             { INI BINDINGS }
@@ -362,7 +363,6 @@ initialization
         On E: Exception Do
         begin
             IPam2ManagerLoaded := FALSE;
-            
             Console.error( 'Error loading config:', E.Message );
         end;
         
