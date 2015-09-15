@@ -16,10 +16,6 @@ type TPam2User = class
 			_admin: boolean;
 			_password: AnsiString;
 
-			_groups: TPam2GroupList;
-
-			_passwords: Array of TServiceUserPassword;
-
 			saved: boolean;
 			needSave: boolean;
 			deleted: boolean;
@@ -56,19 +52,8 @@ type TPam2User = class
 			procedure updateIdAfterInsertion();
 			procedure rollback( snapshotLine: AnsiString );
 
-			procedure makeMemberOf( group: TPam2Group; const unsave: boolean = TRUE );
-			procedure removeMembershipFrom( group: TPam2Group; const unsave: boolean = TRUE );
-
-			{ delete all user references from the references tables }
-			procedure deleteReferences();
-
-			{ saves all user references from the references tables }
-			procedure saveReferences();
-
-			{ test to see if a user is member of a group or not }
-			function isMemberOf( groupName: AnsiString ): Boolean;
-			function isMemberOf( groupId: Integer ): Boolean;
-			function isMemberOf( group: TPam2Group ): Boolean;
+			procedure makeMemberOf( group: TPam2Group );
+			procedure removeMembershipFrom( group: TPam2Group );
 
 	end;
 

@@ -83,8 +83,6 @@ var operation: byte;
     len: Integer;
     len1: Integer;
 
-    uArg: AnsiString;
-
     isWildCard: Boolean;
     isWildCard1: Boolean;
 
@@ -95,8 +93,6 @@ var operation: byte;
     user: TPam2User;
     host: TPam2Host;
     service: TPam2Service;
-
-    needHost : Boolean;
 
     END_OF_QUERY: TStrArray;
     STOPWORD_ON: TStrArray;
@@ -203,7 +199,7 @@ begin
 					for i := 0 to Len - 1 do
 					begin
 						user := db.getUserByName( subjects[i] );
-						db.bindUserToGroup( user, group );
+						db.bindUG( user, group );
 					end;
 
 					db.commit();
@@ -246,7 +242,7 @@ begin
 					for i := 0 to Len - 1 do
 					begin
 						user := db.getUserByName( subjects[i] );
-						db.unbindUserFromGroup( user, group );
+						db.unbindUG( user, group );
 					end;
 
 					db.commit();
@@ -288,7 +284,6 @@ begin
 				raise Exception.Create( 'Illegal token "' + tokWho + '" ( expected "to" or "from" ), at index 3 [1]' );
 
 			len := 0;
-			needHost := FALSE;
 
 			// read subjects ( services )
 			subjects := query.readEntities( ENTITY_SERVICE, TRUE, db, STOPWORD_ON, isWildCard );

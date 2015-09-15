@@ -13,8 +13,6 @@ type TPam2Service = class
 			needSave: boolean;
 			deleted: boolean;
 
-			_options: Array of TPam2ServiceOptionBinding;
-
 			procedure SetServiceName( value: AnsiString );
 			function  Save(): Boolean;
 
@@ -35,8 +33,5 @@ type TPam2Service = class
 			procedure   rollback( snapshotLine: AnsiString );
 
 			function    equals( service: TPam2Service ): Boolean;
-
-			procedure   deleteReferences();
-			procedure   saveReferences();
 
 	end;

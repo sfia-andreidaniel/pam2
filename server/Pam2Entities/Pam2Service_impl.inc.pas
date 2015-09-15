@@ -10,8 +10,6 @@ begin
 	_service_id := sid;
 	_service_name := sname;
 
-	setLength( _options, 0 );
-
 end;
 
 constructor TPam2Service.Create( _db: TPam2DB; sid: Integer );
@@ -25,9 +23,6 @@ begin
 
 	_service_id := sid;
 	_service_name := '';
-
-	setLength( _options, 0 );
-
 end;
 
 procedure TPam2Service.snapshot();
@@ -103,7 +98,6 @@ end;
 
 destructor TPam2Service.FreeWithoutSaving();
 begin
-	setLength( _options, 0 );
 end;
 
 procedure TPam2Service.setServiceName( value: AnsiString );
@@ -157,7 +151,8 @@ begin
 	if ( not deleted ) then
 	begin
 		deleted := TRUE;
-		needSave := TRUE;		
+		needSave := TRUE;
+		db.unbindHSG( self );	
 	end;
 
 end;
@@ -176,12 +171,4 @@ begin
 		else result := FALSE;
 
 	end;
-end;
-
-procedure TPam2Service.deleteReferences();
-begin
-end;
-
-procedure TPam2Service.saveReferences();
-begin
 end;

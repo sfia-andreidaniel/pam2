@@ -54,7 +54,6 @@ implementation
 	procedure TPam2CommandParser.Exec();
 	
 	var context: TPam2ExecutionContext;
-	    raw: TStrArray;
 	
 	begin
 		

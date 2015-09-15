@@ -162,8 +162,7 @@ function TQueryParser.readEntities(
 
 ): TStrArray;
 
-var i: Integer;
-    arg: AnsiString;
+var arg: AnsiString;
     arg1 : AnsiString;
 
 begin

@@ -58,3 +58,16 @@ type TPam2HSGPermission  = record
 
 	allow: boolean;
 end;
+
+type TPam2HSGPermission_List = Array of TPam2HSGPermission;
+
+
+{ USER + GROUP binding }
+type TPam2UGBinding = record
+
+	user: TPam2User;
+	group: TPam2Group;
+
+end;
+
+type TPam2UGBinding_List = Array of TPam2UGBinding;

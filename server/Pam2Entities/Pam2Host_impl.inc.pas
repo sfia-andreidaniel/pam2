@@ -11,15 +11,6 @@ begin
 	_host_name := hname;
 	_default_host := defaultHost;
 
-	setLength( _services, 0 );
-
-	setLength( _group_policies, 0 );
-	setLength( _user_policies, 0 );
-
-	setLength( _service_option_bindings, 0 );
-	setLength( _service_useroption_bindings, 0 );
-	setLength( _service_groupoption_bindgs, 0 );
-
 end;
 
 constructor TPam2Host.Create( _db: TPam2DB; hid: integer );
@@ -34,12 +25,6 @@ begin
 	_host_id := hid;
 	_host_name := '';
 	_default_host := FALSE;
-
-	setLength( _services, 0 );
-	setLength( _group_policies, 0 );
-	setLength( _service_option_bindings, 0 );
-	setLength( _service_useroption_bindings, 0 );
-	setLength( _service_groupoption_bindgs, 0 );
 
 end;
 
@@ -121,14 +106,6 @@ end;
 
 destructor TPam2Host.FreeWithoutSaving();
 begin
-	setLength( _services, 0 );
-
-	setLength( _group_policies, 0 );
-	setLength( _user_policies, 0 );
-
-	setLength( _service_option_bindings, 0 );
-	setLength( _service_useroption_bindings, 0 );
-	setLength( _service_groupoption_bindgs, 0 );
 end;
 
 procedure TPam2Host.setHostName( value: AnsiString );
@@ -190,28 +167,6 @@ begin
 
 end;
 
-function  TPam2Host.getMachineServices(): TStrArray;
-var i: Integer;
-    len: Integer;
-begin
-
-	len := Length( _services );
-
-	setLength( result, Len );
-
-	for i := 0 to len - 1 do
-		result[ i ] := _services[ i ].serviceName;
-
-end;
-
-procedure TPam2Host.setMachineServices( svcs: TStrArray );
-begin
-
-	raise Exception.Create( 'Not implemented' );
-
-end;
-
-
 procedure TPam2Host.updateIdAfterInsertion();
 var i: Integer;
 begin
@@ -237,12 +192,13 @@ begin
 	if ( not deleted ) then
 	begin
 		deleted := TRUE;
-		needSave := TRUE;		
+		needSave := TRUE;
+		db.unbindHSG( self );	
 	end;
 
 end;
 
-function TPam2Host.Equals( host: TPam2Host ): Boolean;
+function TPam2Host.equals( host: TPam2Host ): Boolean;
 begin
 	if ( host = NIL ) then
 	begin
@@ -257,14 +213,4 @@ begin
 		else result := FALSE;
 
 	end;
-end;
-
-procedure TPam2Host.saveReferences();
-begin
-
-end;
-
-procedure TPam2Host.deleteReferences();
-begin
-
 end;

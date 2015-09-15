@@ -18,7 +18,11 @@ type TPam2DB = class
 
 			snapshot     : TStrArray;
 
-			HSGPermissions: Array of TPam2HSGPermission;
+			{ ( host, service, group, allow ) permission }
+			HSGPermissions : TPam2HSGPermission_List;
+
+			{ ( user, group ) binding }
+			UGBindings     : TPam2UGBinding_List;
 
 			procedure Load();
 			function  getDefaultHost(): TPam2Host;
@@ -73,14 +77,6 @@ type TPam2DB = class
 
 			function  encryptPassword ( password: AnsiString ): AnsiString;
 
-			function bindUserToGroup ( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
-			function bindUserToGroup ( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
-			function bindUserToGroup ( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
-
-			function unbindUserFromGroup( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
-			function unbindUserFromGroup( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
-			function unbindUserFromGroup( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
-
 
 			// SNAPSHOTS, STATEMENTS, ETC. INTERNAL STUFF
 
@@ -93,7 +89,9 @@ type TPam2DB = class
 
 			function createContext    ( userName: ansiString; password: AnsiString ): TPam2ExecutionContext;
 
-			// CREATE FUNCTION
+			// CREATE FUNCTIONS
+
+			{ Creates a new User }
 			function createUser       ( loginName: AnsiString; 
 				                        const realName: AnsiString = ''; 
 				                        const emailAddress: AnsiString = ''; 
@@ -102,20 +100,43 @@ type TPam2DB = class
 				                        const password: AnsiString = ''
 				                      ): TPam2User;
 
+			{ Creates a new Group }
 			function createGroup      ( groupName: AnsiString;
 										const enabled: boolean = TRUE
 									  ): TPam2Group;
 
+			{ Creates a new Host }
 			function createHost       ( hostName: AnsiString; 
 				                        const isDefault: Boolean = false 
 				                      ): TPam2Host;
 
+			{ Creates a new service }
 			function createService    ( serviceName: AnsiString ): TPam2Service;
 
-			
-			procedure bindHSG         ( host: TPam2Host; group: TPam2Group; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
-			procedure bindHSG         ( hostId: Integer; groupId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
-			procedure bindHSG         ( hostName: AnsiString; groupName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
+			{ HOST + SERVICE + GROUPS bindings routines }
+			procedure bindHSG          ( host: TPam2Host; group: TPam2Group; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSG          ( hostId: Integer; groupId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSG          ( hostName: AnsiString; groupName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
+			procedure unbindHSG        ( host: TPam2Host );
+			procedure unbindHSG        ( service: TPam2Service );
+			procedure unbindHSG        ( group: TPam2Group );
+
+			function  getHSGPermissions( host: TPam2Host )       : TPam2HSGPermission_List;
+			function  getHSGPermissions( service: TPam2Service ) : TPam2HSGPermission_List;
+			function  getHSGPermissions( group: TPam2Group )     : TPam2HSGPermission_List;
+
+			{ GROUP + USER bindings routines }
+			procedure bindUG           ( user: TPam2User; group: TPam2Group      );
+			procedure bindUG           ( userId: Integer; groupId: Integer         );
+			procedure bindUG           ( userName: AnsiString; groupName: AnsiString );
+
+			procedure unbindUG         ( user: TPam2User; group: TPam2Group );
+			procedure unbindUG         ( user: TPam2User   );
+			procedure unbindUG         ( group: TPam2Group );
+
+			function  getUGBindings    ( user: TPam2User   ): TPam2UGBinding_List;
+			function  getUGBindings    ( group: TPam2Group ): TPam2UGBinding_List;
+
 
 			{ SNAPSHOT FUNCTIONALITY }
 

@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 5.5.44, for debian-linux-gnu (x86_64)
 --
--- Host: 127.0.0.1    Database: pam
+-- Host: localhost    Database: pam
 -- ------------------------------------------------------
 -- Server version	5.5.44-0ubuntu0.14.04.1
 
@@ -28,7 +28,7 @@ CREATE TABLE `group` (
   `group_enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`group_id`),
   UNIQUE KEY `group_name_UNIQUE` (`group_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -37,7 +37,7 @@ CREATE TABLE `group` (
 
 LOCK TABLES `group` WRITE;
 /*!40000 ALTER TABLE `group` DISABLE KEYS */;
-INSERT INTO `group` VALUES (1,'administrators',1),(2,'powerusers',1),(3,'users',1);
+INSERT INTO `group` VALUES (1,'administrators',1),(2,'powerusers',1),(3,'users',1),(4,'web',1);
 /*!40000 ALTER TABLE `group` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -61,6 +61,7 @@ CREATE TABLE `group_users` (
 
 LOCK TABLES `group_users` WRITE;
 /*!40000 ALTER TABLE `group_users` DISABLE KEYS */;
+INSERT INTO `group_users` VALUES (1,1),(1,2);
 /*!40000 ALTER TABLE `group_users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -91,29 +92,6 @@ INSERT INTO `host` VALUES (1,'localhost',1),(2,'virtualubuntu',0);
 UNLOCK TABLES;
 
 --
--- Table structure for table `host_services`
---
-
-DROP TABLE IF EXISTS `host_services`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `host_services` (
-  `host_id` int(11) NOT NULL,
-  `service_id` int(11) NOT NULL,
-  PRIMARY KEY (`host_id`,`service_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `host_services`
---
-
-LOCK TABLES `host_services` WRITE;
-/*!40000 ALTER TABLE `host_services` DISABLE KEYS */;
-/*!40000 ALTER TABLE `host_services` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `service`
 --
 
@@ -136,32 +114,6 @@ LOCK TABLES `service` WRITE;
 /*!40000 ALTER TABLE `service` DISABLE KEYS */;
 INSERT INTO `service` VALUES (1,'pam');
 /*!40000 ALTER TABLE `service` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `service_host_group_options`
---
-
-DROP TABLE IF EXISTS `service_host_group_options`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `service_host_group_options` (
-  `service_id` int(11) NOT NULL,
-  `host_id` int(11) NOT NULL,
-  `group_id` int(11) NOT NULL,
-  `option_name` char(45) NOT NULL,
-  `option_value` char(255) DEFAULT NULL,
-  PRIMARY KEY (`service_id`,`host_id`,`group_id`,`option_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `service_host_group_options`
---
-
-LOCK TABLES `service_host_group_options` WRITE;
-/*!40000 ALTER TABLE `service_host_group_options` DISABLE KEYS */;
-/*!40000 ALTER TABLE `service_host_group_options` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -212,32 +164,6 @@ CREATE TABLE `service_host_options` (
 LOCK TABLES `service_host_options` WRITE;
 /*!40000 ALTER TABLE `service_host_options` DISABLE KEYS */;
 /*!40000 ALTER TABLE `service_host_options` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `service_host_user_options`
---
-
-DROP TABLE IF EXISTS `service_host_user_options`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `service_host_user_options` (
-  `service_id` int(11) NOT NULL,
-  `host_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `option_name` char(45) NOT NULL,
-  `option_value` char(255) DEFAULT NULL,
-  PRIMARY KEY (`service_id`,`host_id`,`user_id`,`option_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `service_host_user_options`
---
-
-LOCK TABLES `service_host_user_options` WRITE;
-/*!40000 ALTER TABLE `service_host_user_options` DISABLE KEYS */;
-/*!40000 ALTER TABLE `service_host_user_options` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -354,4 +280,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2015-09-14  1:17:17
+-- Dump completed on 2015-09-15 22:51:12

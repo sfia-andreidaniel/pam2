@@ -14,9 +14,6 @@ begin
 	_password := pam2_password;
 	_admin := is_admin;
 
-	setLength( _groups, 0 );
-	setLength( _passwords, 0 );
-
 end;
 
 constructor TPam2User.Create( _db: TPam2DB; uid: Integer );
@@ -32,9 +29,6 @@ begin
 	_email := '';
 	_enabled := FALSE;
 	_password := '';
-
-	setLength( _groups, 0 );
-	setLength( _passwords, 0 );
 end;
 
 function TPam2User.Save(): boolean;
@@ -55,14 +49,10 @@ end;
 
 destructor TPam2User.FreeWithoutSaving();
 begin
-	setLength( _groups, 0 );
-	setLength( _passwords, 0 );
 end;
 
 
 procedure TPam2User.snapshot();
-var i: Integer;
-    len: Integer;
 begin
 
 	if ( _user_id = 0 ) then exit; // cannot snapshot
@@ -78,18 +68,6 @@ begin
 	db.addSnapshot( 'saved: '        + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: '     + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: '      + IntToStr( Integer( deleted ) ) );
-
-	// SNAPSHOT GROUP MEMBERSHIP
-	len := Length( _groups );
-
-	for i := 0 to len - 1 do
-	begin
-		if _groups[i].id > 0 then
-		begin
-			db.addSnapshot( 'memberOf: ' + IntToStr( _groups[i].id ) );
-		end;
-	end;
-
 	db.addSnapshot( 'END' );
 
 end;
@@ -148,10 +126,6 @@ begin
 	if propName = 'deleted' then
 	begin
 		deleted := Boolean( StrToInt( propValue ) );
-	end else
-	if propName = 'memberOf' then
-	begin
-		makeMemberOf( db.getGroupById( StrToInt( propValue ) ), FALSE );
 	end else
 	raise Exception.Create( 'TPam2User.rollback: don''t know how to restore property: "' + propName + '"!' );
 
@@ -300,10 +274,9 @@ begin
 		if i > 0 then
 		begin
 			_user_id := i;
-			Console.log('Updated id of user ' + _login_name + ' to ' + IntToStr( _user_id ) );
 		end else
 		begin
-			Console.error('Failed to update id of user ' + _login_name );
+			raise Exception.Create('Failed to update id of user ' + _login_name );
 		end;
 	end;
 
@@ -315,71 +288,23 @@ begin
 	if ( not deleted ) then
 	begin
 		deleted := TRUE;
-		needSave := TRUE;		
+		needSave := TRUE;
+		db.unbindUG( self );
 	end;
 
 end;
 
-procedure TPam2User.makeMemberOf( group: TPam2Group; const unsave: boolean = TRUE );
-var len: Integer;
-      i: Integer;
+procedure TPam2User.makeMemberOf( group: TPam2Group );
 begin
-
-	if ( group = NIL )
-		then exit;
-
-	len := Length( _groups );
-
-	for i := 0 to len - 1 do
-	begin
-		if group.equals( _groups[i] ) then
-		begin
-			exit;
-		end
-	end;
-
-	setLength( _groups, len + 1 );
-
-	_groups[ len ] := group;
-
-	if unsave then
-		saved := FALSE;
-
+	db.bindUG( self, group );
 end;
 
-procedure TPam2User.removeMembershipFrom( group: TPam2Group; const unsave: boolean = TRUE );
-var i: Integer;
-    j: Integer;
-    len: Integer;
+procedure TPam2User.removeMembershipFrom( group: TPam2Group );
 begin
-
-	if ( group = NIL )
-		then exit;
-
-	len := Length( _groups );
-
-	for i := len - 1 downto 0 do
-	begin
-		if _groups[i].equals( group ) then
-		begin
-
-			for j := i + 1 to len - 1 do
-			begin
-				_groups[ j - 1 ] := _groups[ j ];
-			end;
-			
-			setLength( _groups, len - 1 );
-
-			if unsave then
-				saved := FALSE;
-
-			break;
-		end;
-	end;
-
+	db.unbindUG( self, group );
 end;
 
-function TPam2User.Equals( user: TPam2User ): Boolean;
+function TPam2User.equals( user: TPam2User ): Boolean;
 begin
 
 	if ( user = NIL ) then
@@ -395,72 +320,4 @@ begin
 
 	end;
 
-end;
-
-procedure TPam2User.deleteReferences();
-begin
-	if ( _user_id > 0 ) then
-	begin
-		db.addSQLStatement( 'DELETE FROM `group_users` WHERE `user_id` = ' + IntToStr( _user_id ) );
-	end;
-
-end;
-
-procedure TPam2User.saveReferences();
-var i: Integer;
-    len: Integer;
-begin
-
-	deleteReferences();
-
-	if ( _user_id > 0 ) and ( not deleted ) then
-	begin
-
-		len := Length( _groups );
-
-		for i := 0 to len - 1 do
-		begin
-
-			if ( _groups[i].id > 0 ) then
-			begin
-				db.addSQLStatement( 'INSERT IGNORE into `group_users` ( `group_id`, `user_id` ) VALUES ( ' + IntToStr( _groups[i].id ) + ', ' + IntToStr( _user_id ) + ' )' );
-			end;
-		end;
-	end;
-
-end;
-
-function TPam2User.isMemberOf( groupName: AnsiString ): Boolean;
-var group: TPam2Group;
-begin
-	group := db.getGroupByName( groupName );
-	result := isMemberOf( group );
-end;
-
-function TPam2User.isMemberOf( groupId: Integer ): Boolean;
-var group: TPam2Group;
-begin
-	group := db.getGroupById( groupId );
-	result := isMemberOf( group );
-end;
-
-function TPam2User.isMemberOf( group: TPam2Group ): Boolean;
-var i: Integer;
-    len: Integer;
-begin
-	result := FALSE;
-
-	if ( group = NIL ) then
-	begin
-		exit;
-	end else
-	begin
-		Len := Length( _groups );
-		for i := 0 to Len - 1 Do
-			if ( group.equals( _groups[i] ) ) then
-			begin
-				result := TRUE;
-				exit;
-			end;
-	end;
 end;

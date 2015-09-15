@@ -11,8 +11,6 @@ type TPam2Group = class
 			_group_name: AnsiString;
 			_enabled: boolean;
 
-			_users: TPam2UserList;
-
 			saved: boolean;
 			needSave: boolean;
 			deleted: boolean;
@@ -40,13 +38,10 @@ type TPam2Group = class
 			procedure updateIdAfterInsertion();
 			procedure rollback( snapshotLine: AnsiString );
 
-			procedure addUser( user: TPam2User; const unsave: boolean = TRUE );
+			procedure addUser   ( user: TPam2User; const unsave: boolean = TRUE );
 			procedure removeUser( user: TPam2User; const unsave: boolean = TRUE );
 
-			function Equals( group: TPam2Group ): Boolean;
-
-			procedure deleteReferences();
-			procedure saveReferences();
+			function  equals( group: TPam2Group ): Boolean;
 
 end;
 
