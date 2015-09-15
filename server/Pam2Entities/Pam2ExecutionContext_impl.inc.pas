@@ -3,12 +3,6 @@ begin
 
 	db := _db;
 	admin := isAdmin;
-
-	if ( isAdmin ) then
-		Console.log( 'Create context with administrative privs' )
-	else
-		Console.log( 'Create context with limited privs' );
-
 	lockedToUserId := lockedUserId;
 
 end;
@@ -84,14 +78,36 @@ var operation: byte;
     tokWho: AnsiString;
 
     subjects: TStrArray;
+    subjects1: TStrArray;
+
     len: Integer;
+    len1: Integer;
 
     uArg: AnsiString;
 
     isWildCard: Boolean;
+    isWildCard1: Boolean;
+
+    i: Integer;
+    j: Integer;
+
+    group: TPam2Group;
+    user: TPam2User;
+    host: TPam2Host;
+    service: TPam2Service;
+
+    needHost : Boolean;
+
+    END_OF_QUERY: TStrArray;
+    STOPWORD_ON: TStrArray;
+
+    explain: AnsiString;
 
 begin
 	
+	setLength( END_OF_QUERY, 0 );
+	setLength( STOPWORD_ON, 1 ); STOPWORD_ON[0] := 'on';
+
 	arg := LowerCase( query.nextArg() );
 
 	setLength( subjects, 0 );
@@ -103,6 +119,9 @@ begin
 	else
 	if arg = 'remove' then
 		operation := OP_REMOVE
+	else
+	if arg = 'unset' then
+		operation := OP_UNSET
 	else
 		raise Exception.Create( 'Wrong predicate ( expected "add" or "remove" but got "' + arg + '" ), at index 1' );
 
@@ -131,74 +150,74 @@ begin
 		if ( arg = 'user' ) or ( arg = 'users' ) then
 		begin
 
+			if operation = OP_UNSET then
+				raise Exception.Create( 'Illegal token "unset" at argument 2' );
+
 			if ( tokWho <> 'to' ) and ( tokWho <> 'for' ) then
 				raise Exception.Create( 'Illegal token "' + tokWho + '" ( expected "to" or "for" ), at index 3 [1]' );
 
 			len := 0;
-			isWildCard := FALSE;
 
 			// read subjects ( users )
+			subjects := query.readEntities( ENTITY_USER, TRUE, db, END_OF_QUERY, isWildCard );
 
-			repeat
+			Len := Length( subjects );
 
-				arg := LowerCase( query.nextArg() );
-
-				uArg := trim( arg );
-
-				if ( uArg = '' ) then 
-				begin
-					break;
-				end else
-				if ( uArg = '*' ) then begin
-					// Add or remove group to all users.
-					if len > 0 then begin
-						raise Exception.Create( 'A wildcard ("*") cannot be used in conjunction with other user names!' );
-					end else
-					begin
-						subjects := db.allUsers;
-						len := Length( subjects );
-						isWildCard := TRUE;
-					end;
-				end else
-				begin
-
-					uArg := normalize( arg, ENTITY_USER );
-
-					if uArg <> '' then
-					begin
-
-						if isWildCard then
-						begin
-							raise Exception.Create( 'A wildcard ("*") cannot be used in conjunction with other user names!' );
-						end else
-						begin
-
-							console.error( 'ADD: ', uArg );
-
-							len := len + 1;
-							setLength( subjects, len );
-							subjects[ len - 1 ] := uArg;
-						end;
-
-					end else
-					begin
-						raise Exception.Create('Illegal user name "' + arg + '"' );
-					end;
-
-				end;
-
-			until false;
-
-			if ( not isWildCard ) and ( len = 0 ) then
+			if ( not isWildCard ) and ( Len = 0 ) then
 				raise Exception.Create( 'Expected a user list separated by space' );
+
+			arg := query.nextArg();
+
+			if arg <> '' then
+			begin
+				raise Exception.Create( 'Unexpected token "' + arg + '"' );
+			end;
 
 			if admin = FALSE then
 				raise Exception.Create( 'Access denied ( command works only in administrative context )!');
 
-			// Good. We've got the subjects
+			Len := Length( subjects );
 
+			// Test if the group exist
+
+			if not db.groupExists( gName ) then
+				raise Exception.Create( 'Group "' + groupName + '" does not exist!' );
+
+			// Test if all users from the subject exists
+
+			for i := 0 to Len - 1 do begin
+				if not db.userExists( subjects[i] ) then
+					raise Exception.Create( 'User "' + subjects[i] + '" does not exist!' );
+			end;
+
+			// Good. We've got the subjects
 			if ( operation = OP_ADD ) then
 			begin
+
+				db.createSnapshot();
+
+				try
+
+					group := db.getGroupByName( gName );
+
+					for i := 0 to Len - 1 do
+					begin
+						user := db.getUserByName( subjects[i] );
+						db.bindUserToGroup( user, group );
+					end;
+
+					db.commit();
+
+					db.discardSnapshot();
+
+				except
+					On E: Exception do
+					begin
+						db.rollbackSnapshot();
+						raise;
+					end
+				end;
+
 
 				if ( isWildCard ) then
 				begin
@@ -217,6 +236,31 @@ begin
 
 			end else
 			begin
+
+				db.createSnapshot();
+
+				try
+
+					group := db.getGroupByName( gName );
+
+					for i := 0 to Len - 1 do
+					begin
+						user := db.getUserByName( subjects[i] );
+						db.unbindUserFromGroup( user, group );
+					end;
+
+					db.commit();
+
+					db.discardSnapshot();
+
+				except
+					On E: Exception do
+					begin
+						db.rollbackSnapshot();
+						raise;
+					end
+				end;
+
 
 				if ( isWildCard ) then
 				begin
@@ -240,12 +284,174 @@ begin
 		if ( arg = 'service' ) or ( arg = 'services' ) then
 		begin
 
+			if ( tokWho <> 'to' ) and ( tokWho <> 'from' ) then
+				raise Exception.Create( 'Illegal token "' + tokWho + '" ( expected "to" or "from" ), at index 3 [1]' );
 
+			len := 0;
+			needHost := FALSE;
+
+			// read subjects ( services )
+			subjects := query.readEntities( ENTITY_SERVICE, TRUE, db, STOPWORD_ON, isWildCard );
+
+			if ( isWildCard = FALSE ) and ( Length( subjects ) = 0 ) then
+			begin
+				raise Exception.Create( 'A list of one or more services is expected!' );
+			end;
+
+			arg := LowerCase( query.nextArg() );
+
+			if ( arg <> '' ) then
+			begin
+
+				if arg <> 'on' then
+				begin
+
+					raise Exception.Create( 'Unexpected token "' + arg + '"' );
+
+				end else
+				begin
+
+					// read subjects ( hosts )
+					subjects1 := query.readEntities( ENTITY_HOST, TRUE, db, END_OF_QUERY, isWildCard1 );
+
+					if ( isWildCard1 = FALSE ) and ( Length( subjects1 ) = 0 ) then
+						raise Exception.Create( 'A list of one or more hosts is expected!' );
+					
+
+					if ( operation = OP_ADD ) then 
+					begin
+						explain := 'ALLOW group "' + gName + '" ';
+						
+						if ( isWildCard ) 
+							then explain := explain + 'to use ALL SERVICES (' + IntToStr( Length(subjects) ) + ') '
+							else explain := explain + 'to use SERVICE: "' + str_join( subjects, '", "' ) + '" ';
+
+					end else
+					if ( operation = OP_REMOVE ) then
+					begin
+						explain := 'PROHIBIT group "' + gName + '" ';
+
+						if ( isWildCard )
+							then explain := explain + ' from using ALL SERVICES (' + IntToStr( Length( subjects ) ) + ') '
+							else explain := explain + ' from using SERVICE: "' + str_join(subjects, '", "' ) + '" ';
+
+					end else
+					begin
+
+						explain := 'UNSET group "' + gName + '" ';
+
+						if ( isWildCard )
+							then explain := explain + ' from ALL SERVICES (' + IntToStr( Length( subjects ) ) + ') '
+							else explain := explain + ' from SERVICE: "' + str_join(subjects, '", "' ) + '" ';
+					end;
+
+					if ( isWildCard1 )
+						then explain := explain + 'ON ALL HOSTS (' + IntToStr( Length( subjects1 ) ) + ')'
+						else explain := explain + 'ON HOST: "' + str_join(subjects1, '", "' ) + '"';
+
+					if ( admin = FALSE ) then
+						raise Exception.Create( 'Acces denied ( command works only in administrative context )!' );
+
+					// commmit
+					group := db.getGroupByName( gName );
+
+					if ( group = NIL ) then
+						raise Exception.Create( 'Group "' + groupName + '" does not exist!' );
+
+					// test if all services exist
+					Len := Length( subjects );
+
+					for i := 0 to Len - 1 do
+					begin
+						if not db.serviceExists( subjects[i] ) then
+						begin
+							raise Exception.Create( 'Service "' + subjects[i] + '" does not exist!' );
+						end;
+					end;
+
+					// test if all hosts exists
+					Len := Length( subjects1 );
+
+					for i := 0 to Len - 1 do
+					begin
+						if not db.hostExists( subjects1[i] ) then
+						begin
+							raise Exception.Create( 'Host "' + subjects1[i] + '" does not exist!' );
+						end;
+					end;
+
+					// do changes
+					db.createSnapshot();
+
+					try
+
+						Len := Length( subjects );
+						Len1 := Length( subjects1 );
+
+						for i := 0 to Len - 1 Do
+						begin
+
+							service := db.getServiceByName( subjects[i] );
+
+							for j := 0 to Len1 - 1 Do
+								begin
+
+									host := db.getHostByName( subjects1[j] );
+
+									if ( operation = OP_UNSET ) then
+									begin
+										db.bindHSG( host, group, service, FALSE, TRUE );
+									end else
+									if ( operation = OP_ADD ) then
+									begin
+										db.bindHSG( host, group, service, TRUE, FALSE );
+									end else
+									if ( operation = OP_REMOVE ) then
+									begin
+										db.bindHSG( host, group, service, FALSE, FALSE );
+									end;
+
+								end;
+
+						end;
+
+						db.commit();
+						db.discardSnapshot();
+
+						result := '{"explain": ' + json_encode( explain ) + '}';
+
+						exit;
+
+					except
+						On E: Exception Do
+						begin
+							db.rollbackSnapshot();
+							raise;
+						end;
+					end;
+					
+
+				end;
+
+			end else
+			begin
+
+				raise Exception.Create( 'Unexpected end of query ( expected token ''on'' at argument ' + IntToStr( query.currentArgumentIndex ) + ' )' );
+
+			end;
+
+		end else
+		begin
+
+			raise Exception.Create( 'Unexpected token "' + arg + '" at argument ' + IntToStr( query.currentArgumentIndex ) + ': Expected "user" or "users" or "service" or "services"!' );
 
 		end;
 
 	end else
 	begin
+
+		if ( operation = OP_UNSET ) then
+			raise Exception.Create( 'Illegal token unset ( at argument 2 )' );
 
 		if admin = FALSE then
 			raise Exception.Create( 'Access denied ( command works only in administrative context )!');
@@ -284,7 +490,25 @@ begin
 			if not db.groupExists( gName ) then
 				raise Exception.Create('Group "' + gName + '" does not exist!' );
 
-			result := '{"explain": ' + json_encode( 'Remove group "' + gName + '"' ) + '}';
+			db.createSnapshot();
+
+			try
+				db.getGroupByName( gName ).remove();
+
+				db.commit();
+
+				db.discardSnapshot();
+
+				result := '{"explain": ' + json_encode( 'Remove group "' + gName + '"' ) + '}';
+			
+			except
+
+				On E: Exception do
+				begin
+					db.rollbackSnapshot();
+					raise;
+				end;
+			end;
 
 		end;
 

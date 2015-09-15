@@ -18,21 +18,32 @@ type TPam2DB = class
 
 			snapshot     : TStrArray;
 
+			HSGPermissions: Array of TPam2HSGPermission;
+
 			procedure Load();
 			function  getDefaultHost(): TPam2Host;
 			function  generateRandomUserPassword(): AnsiString;
 
 			function  getAllUsersList(): TStrArray;
-			procedure doSQLStatement( statement: AnsiString );
+			function  getAllGroupsList(): TStrArray;
+			function  getAllServicesList(): TStrArray;
+			function  getAllHostsList(): TStrArray;
+
 			procedure removeAndDisposeDeletedObjects();
+			procedure dispatchSnapshotLine( snapshotLine: AnsiString );
 
 		public
 
 			constructor Create( _db: TSqlConnection );
 			destructor  Free();
 
-			property defaultHost: TPam2Host read getDefaultHost;
-			property allUsers: TStrArray read getAllUsersList;
+			property defaultHost      : TPam2Host read getDefaultHost;
+			
+			property allUsers         : TStrArray read getAllUsersList;
+			property allHosts         : TStrArray read getAllHostsList;
+			property allServices      : TStrArray read getAllServicesList;
+			property allGroups        : TStrArray read getAllGroupsList;
+
 
 			function getUserById      ( userId: Integer ): TPam2User;
 			function getUserByName    ( loginName: AnsiString ): TPam2User;
@@ -60,7 +71,18 @@ type TPam2DB = class
 			function serviceExists    ( serviceName: AnsiString; const ignoreServiceId: integer = 0 ): Boolean;
 			function serviceExists    ( serviceId: Integer; const ignoreServiceId: Integer = 0 ): Boolean;
 
-			function  encryptPassword  ( password: AnsiString ): AnsiString;
+			function  encryptPassword ( password: AnsiString ): AnsiString;
+
+			function bindUserToGroup ( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
+			function bindUserToGroup ( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
+			function bindUserToGroup ( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
+
+			function unbindUserFromGroup( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
+			function unbindUserFromGroup( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
+			function unbindUserFromGroup( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
+
+
+			// SNAPSHOTS, STATEMENTS, ETC. INTERNAL STUFF
 
 			procedure addSQLStatement ( statement: AnsiString );
 			procedure addExplanation  ( explanation: AnsiString );
@@ -90,16 +112,37 @@ type TPam2DB = class
 
 			function createService    ( serviceName: AnsiString ): TPam2Service;
 
-			// SNAPSHOT FUNCTIONALITY
+			
+			procedure bindHSG         ( host: TPam2Host; group: TPam2Group; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSG         ( hostId: Integer; groupId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSG         ( hostName: AnsiString; groupName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
 
+			{ SNAPSHOT FUNCTIONALITY }
+
+			// create an in-memory snapshot of the entities
 			procedure createSnapshot();
+			
+			// displays the snapshot in console
 			procedure debugSnapshot();
+			
+			// restores the snapshot
 			procedure rollbackSnapshot();
+
+			// clears the snapshot from memory, without saving it to database
 			procedure discardSnapshot();
 
+			// used to fetch primary keys of selected objects ( select id from ... where ... )
 			function  fetchSQLStatementResultAsInt( statement: AnsiString ): Integer;
 
+			// commits all pending operations.
 			procedure commit();
+
+			// commits only the pending sql statements
+			procedure commitSQLStatements();
+			
+			procedure doSQLStatement( statement: AnsiString );
+
+			function  normalizeEntity( inputStr: AnsiString; entityType: Integer ): AnsiString;
 
 	end;
 

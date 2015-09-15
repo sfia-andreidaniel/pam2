@@ -22,7 +22,7 @@ begin
 
 end;
 
-constructor TPam2Host.Create( _db: TPam2DB );
+constructor TPam2Host.Create( _db: TPam2DB; hid: integer );
 begin
 
 	db := _db;
@@ -31,7 +31,7 @@ begin
 	needSave := FALSE;
 	deleted := FALSE;
 
-	_host_id := 0;
+	_host_id := hid;
 	_host_name := '';
 	_default_host := FALSE;
 
@@ -45,9 +45,11 @@ end;
 
 procedure TPam2Host.snapshot();
 begin
-	db.addSnapshot( 'HOST' );
+
+	if ( _host_id = 0 ) then exit;
+
+	db.addSnapshot( 'HOST ' + IntToStr( _host_id ) );
 	
-	db.addSnapshot( '_host_id: ' + IntToStr( _host_id ) );
 	db.addSnapshot( '_host_name: ' + _host_name );
 	db.addSnapshot( '_default_host: ' + IntToStr( Integer( _default_host ) ) );
 
@@ -77,10 +79,6 @@ begin
 	propName := copy( snapshotLine, 1, dotPos - 1 );
 	propValue := copy( snapshotLine, dotPos + 2, len );
 
-	if propName = '_host_id' then
-	begin
-		_host_id := StrToInt( propValue );
-	end else
 	if propName = '_host_name' then
 	begin
 		_host_name := propValue;
@@ -241,5 +239,32 @@ begin
 		deleted := TRUE;
 		needSave := TRUE;		
 	end;
+
+end;
+
+function TPam2Host.Equals( host: TPam2Host ): Boolean;
+begin
+	if ( host = NIL ) then
+	begin
+		result := FALSE;
+	end else
+	begin
+
+		if ( ( id > 0 ) and ( id = host.id ) ) or
+		   ( ( hostName <> '' ) and ( hostName = host.hostName ) )
+
+		then result := TRUE
+		else result := FALSE;
+
+	end;
+end;
+
+procedure TPam2Host.saveReferences();
+begin
+
+end;
+
+procedure TPam2Host.deleteReferences();
+begin
 
 end;

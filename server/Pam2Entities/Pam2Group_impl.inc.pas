@@ -14,7 +14,7 @@ begin
 	setLength( _users, 0 );
 end;
 
-constructor TPam2Group.Create( _db: TPam2DB );
+constructor TPam2Group.Create( _db: TPam2DB; gid: integer );
 begin
 
 	db := _db;
@@ -23,7 +23,7 @@ begin
 	needSave := FALSE;
 	deleted := FALSE;
 
-	_group_id := 0;
+	_group_id := gid;
 	_group_name := '';
 	_enabled := FALSE;
 
@@ -32,14 +32,28 @@ begin
 end;
 
 procedure TPam2Group.snapshot();
+var i: integer;
+    len: integer;
 begin
-	db.addSnapshot( 'GROUP' );
-	db.addSnapshot( '_group_id: ' + IntToStr( _group_id ) );
+
+	if ( _group_id = 0 ) then exit;
+
+	db.addSnapshot( 'GROUP ' + IntToStr( _group_id )  );
 	db.addSnapshot( '_group_name: ' + _group_name );
 	db.addSnapshot( '_enabled: ' + IntToStr( Integer( _enabled ) ) );
 	db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
+
+	len := Length( _users );
+
+	for i := 0 to len - 1 do
+	begin
+		if _users[i].id > 0 then begin
+			db.addSnapshot( 'groupOf: ' + IntToStr( _users[i].id ) );
+		end;
+	end;
+
 	db.addSnapshot( 'END' );
 end;
 
@@ -62,10 +76,6 @@ begin
 	propName := copy( snapshotLine, 1, dotPos - 1 );
 	propValue := copy( snapshotLine, dotPos + 2, len );
 
-	if propName = '_group_id' then
-	begin
-		_group_id := StrToInt( propValue );
-	end else
 	if propName = '_group_name' then
 	begin
 		_group_name := propValue;
@@ -85,6 +95,10 @@ begin
 	if propName = 'deleted' then
 	begin
 		deleted := Boolean( StrToInt( propValue ) );
+	end else
+	if propName = 'groupOf' then
+	begin
+		addUser( db.getUserById( StrToInt( propValue ) ), FALSE );
 	end else
 	raise Exception.Create('TPam2Group.rollback: Don''t know how to restore property "' + propName + '"' );
 
@@ -108,6 +122,7 @@ begin
 				db.addSQLStatement( 'INSERT INTO `group` ( `group_name`, `group_enabled` ) VALUES ( "' + _group_name + '", ' + IntToStr( Integer( _enabled ) ) + ')' );
 			end else
 			begin
+				
 				// DO UPDATE
 				db.addSQLStatement( 'UPDATE `group` SET `group_name` = "' + _group_name + '", `group_enabled` = ' + IntToStr( Integer( _enabled ) ) + ' WHERE `group_id` = ' + IntToStr( _group_id ) + ' LIMIT 1' );
 			end;
@@ -119,6 +134,7 @@ begin
 			begin
 				// DO DELETION
 				db.addSQLStatement( 'DELETE FROM `group` WHERE `group_id` = ' + IntToStr( _group_id ) + ' LIMIT 1' );
+				deleteReferences();
 			end;
 
 		end;
@@ -199,7 +215,9 @@ begin
 		if i > 0 then
 		begin
 			_group_id := i;
+			
 			Console.log('Updated id of group ' + _group_name + ' to ' + IntToStr( _group_id ) );
+
 		end else
 		begin
 			Console.error('Failed to update id of group ' + _group_name );
@@ -216,4 +234,114 @@ begin
 		needSave := TRUE;		
 	end;
 
+end;
+
+procedure TPam2Group.addUser( user: TPam2User; const unsave: boolean = TRUE );
+var i: Integer;
+    len: Integer;
+begin
+
+	if ( user = NIL ) then
+		exit;
+
+	len := Length( _users );
+
+	for i := 0 to len - 1 do
+	begin
+
+		if user.equals( _users[i] ) then
+		begin
+			exit;
+		end;
+
+	end;
+
+	setLength( _users, len + 1 );
+
+	_users[ len ] := user;
+
+	if unsave then
+		saved := FALSE;
+
+end;
+
+procedure TPam2Group.removeUser( user: TPam2User; const unsave: boolean = TRUE );
+
+var i   : Integer;
+    j   : Integer;
+    len : Integer;
+
+begin
+
+	if ( user = NIL ) then
+		exit;
+
+	len := Length( _users );
+
+	for i := len - 1 downto 0 do
+	begin
+		if _users[i].equals( user ) then
+		begin
+			for j := i + 1 to len - 1 do
+			begin
+				_users[ j - 1 ] := _users[ j + 1 ];
+			end;
+			setLength( _users, len - 1 );
+
+			if unsave then
+				saved := FALSE;
+
+			break;
+		end;
+	end;
+
+
+end;
+
+function TPam2Group.Equals( group: TPam2Group ): Boolean;
+begin
+	if ( group = NIL ) then
+	begin
+		result := FALSE;
+	end else
+	begin
+
+		if ( ( id > 0 ) and ( id = group.id ) ) or
+		   ( ( groupName <> '' ) and ( groupName = group.groupName ) )
+
+		then result := TRUE
+		else result := FALSE;
+
+	end;
+end;
+
+procedure TPam2Group.deleteReferences();
+begin
+	if ( _group_id > 0 ) then
+	begin
+		db.addSQLStatement( 'DELETE FROM `group_users` WHERE `group_id` = ' + IntToStr( _group_id ) );
+	end;
+end;
+
+procedure TPam2Group.saveReferences();
+var i: Integer;
+    len: Integer;
+begin
+
+	deleteReferences();
+
+	if ( _group_id > 0 ) and ( not deleted ) then
+	begin
+
+		len := Length( _users );
+
+		for i := 0 to len - 1 do
+		begin
+
+			if ( _users[i].id > 0 ) then
+			begin
+				db.addSQLStatement( 'INSERT IGNORE into `group_users` ( `group_id`, `user_id` ) VALUES ( ' + IntToStr( _group_id ) + ', ' + IntToStr( _users[i].id ) + ' )' );
+			end;
+		end;
+	end;
 end;

@@ -4,7 +4,6 @@ unit Pam2CommandParser;
 
 interface uses
 	{$ifdef unix}cthreads, {$endif}
-	QueryParser,
 	classes,
 	Logger,
 	Pam2Manager,

@@ -13,6 +13,8 @@ begin
 	setLength( errors, 0 );
 	setLength( snapshot, 0 );
 
+	setLength( HSGPermissions, 0 );
+
 	Console.log('Loading PAM2DB');
 
 	Load();
@@ -60,6 +62,56 @@ begin
 
 end;
 
+function TPam2DB.getAllHostsList(): TStrArray;
+var i: Integer;
+    len: Integer;
+begin
+
+	len := Length( hosts );
+	setLength( result, len );
+	
+	for i := 0 to len - 1 do
+	begin
+		result[ i ] := hosts[i].hostName;
+	end;
+
+end;
+
+function TPam2DB.getAllGroupsList(): TStrArray;
+var i: Integer;
+    len: Integer;
+begin
+
+	len := Length( groups );
+	setLength( result, len );
+	
+	for i := 0 to len - 1 do
+	begin
+		result[ i ] := groups[i].groupName;
+	end;
+
+end;
+
+function TPam2DB.getAllServicesList(): TStrArray;
+var i: Integer;
+    len: Integer;
+begin
+
+	len := Length( services );
+	setLength( result, len );
+	
+	for i := 0 to len - 1 do
+	begin
+		result[ i ] := services[i].serviceName;
+	end;
+
+end;
+
+function TPam2DB.normalizeEntity( inputStr: AnsiString; entityType: Integer ): AnsiString;
+begin
+	result := normalize( inputStr, entityType );
+end;
+
 procedure TPam2DB.createSnapshot();
 
 var i: Integer;
@@ -92,6 +144,12 @@ begin
 	for i := 0 to len - 1 do
 		users[i].snapshot();
 
+	// SNAPSHOT PERMISSIONS
+	len := Length( HSGPermissions );
+
+	for i := 0 to Len - 1 do
+		addSnapshot( 'HSG: ' + IntToStr( HSGPermissions[i].host.id ) + ' ' + IntToStr( HSGPermissions[i].service.id ) + ' ' + IntToStr( HSGPermissions[i].group.id ) + ' ' + IntToStr( Integer( HSGPermissions[i].allow ) ) );
+
 	Console.notice( 'TPam2DB: Snapshot Ended (' + IntToStr( Length( snapshot ) ) + ' lines)' );
 
 end;
@@ -113,6 +171,9 @@ end;
 
 procedure TPam2DB.discardSnapshot();
 begin
+
+	setLength( sqlStatements, 0 );
+	setLength( errors, 0 );
 
 	if Length( snapshot ) > 0 then
 	begin
@@ -250,25 +311,12 @@ begin
 
 end;
 
-procedure TPam2DB.commit();
+procedure TPam2DB.commitSqlStatements();
 var len: Integer;
     i: Integer;
 begin
-	console.warn( 'COMMITING TO DATABASE BEGIN!' );
-
-	len := Length(users);
-	for i := 0 to Len - 1 do users[i].save();
-
-	len := Length(groups);
-	for i := 0 to Len - 1 do groups[i].save();
-
-	len := Length(hosts);
-	for i := 0 to Len - 1 do hosts[i].save();
-
-	len := Length(services);
-	for i := 0 to Len - 1 do services[i].save();
-
-	console.log( 'COMMIT: ' + IntToStr( Length( sqlStatements ) ) + ' statements' );
+	
+	console.notice( 'COMMIT: ' + IntToStr( Length( sqlStatements ) ) + ' statements' );
 
 	len := Length( sqlStatements );
 
@@ -281,27 +329,50 @@ begin
 
 	setLength( sqlStatements, 0 );
 
+end;
+
+procedure TPam2DB.commit();
+var len: Integer;
+    i: Integer;
+begin
+	console.notice( 'COMMITING: BEGIN' );
+
+	len := Length(users);    for i := 0 to Len - 1 do users[i].save();
+	len := Length(groups);   for i := 0 to Len - 1 do groups[i].save();
+	len := Length(services); for i := 0 to Len - 1 do services[i].save();
+	len := Length(hosts);    for i := 0 to Len - 1 do hosts[i].save();
+
+	commitSqlStatements();
+
 	// Commit objects
 
-	len := Length( users );
-	for i := 0 to Len - 1 do users[i].updateIdAfterInsertion();
-
-	len := Length( services );
-	for i := 0 to Len - 1 do services[i].updateIdAfterInsertion();
-
-	len := Length( hosts );
-	for i := 0 to Len - 1 do hosts[i].updateIdAfterInsertion();
-
-	len := Length( groups );
-	for i := 0 to Len - 1 do groups[i].updateIdAfterInsertion();
+	len := Length( users );    for i := 0 to Len - 1 do users[i].updateIdAfterInsertion();
+	len := Length( groups );   for i := 0 to Len - 1 do groups[i].updateIdAfterInsertion();
+	len := Length( services ); for i := 0 to Len - 1 do services[i].updateIdAfterInsertion();
+	len := Length( hosts );    for i := 0 to Len - 1 do hosts[i].updateIdAfterInsertion();
 
 	// Remove deleted objects
-	// Owww, how much I miss the Array.splice from javascript here ... :)
 	removeAndDisposeDeletedObjects();
 
+	// Save references of existing objects
+	len := Length( users );    for i := 0 to Len - 1 do users[i].saveReferences();
+	len := Length( groups );   for i := 0 to Len - 1 do groups[i].saveReferences();
+	len := Length( services ); for i := 0 to Len - 1 do services[i].saveReferences();
+	len := Length( hosts );    for i := 0 to Len - 1 do hosts[i].saveReferences();
 
-	console.log( 'COMMIT: DONE' );
+	commitSqlStatements();
 
+	console.notice( 'COMMIT: END' );
+
+end;
+
+procedure TPam2DB.dispatchSnapshotLine( snapshotLine: AnsiString );
+var propName: AnsiString;
+    propValue: AnsiString;
+    dotPos: Integer;
+    len: Integer;
+begin
+	Console.log( 'dispatch :' + snapshotLine );
 end;
 
 procedure TPam2DB.rollbackSnapshot();
@@ -317,6 +388,8 @@ var i: Integer;
 
     dispatchTo: Byte;
 
+    id: Integer;
+
 begin
 
 	// FREE ALL RESOURCES SILENTLY
@@ -324,43 +397,63 @@ begin
 	Console.notice( 'TPam2DB: Rollback Begin' );
 
 	// FREE HOSTS
-
-	len := Length( hosts );
-
-	for i:= 0 to len - 1 do
-		hosts[i].FreeWithoutSaving();
-
-	setLength( hosts, 0 );
-
+	len := Length( hosts );    for i:= 0 to len - 1 do hosts[i].FreeWithoutSaving();    setLength( hosts, 0 );
 	// FREE SERVICES
-
-	len := Length( services );
-
-	for i:= 0 to Len - 1 do
-		services[i].FreeWithoutSaving();
-
-	setLength( services, 0 );
-
+	len := Length( services ); for i:= 0 to Len - 1 do services[i].FreeWithoutSaving(); setLength( services, 0 );
 	// FREE GROUPS
-
-	len := Length( groups );
-
-	for i:= 0 to len - 1 do
-		groups[ i ].FreeWithoutSaving();
-
-	setLength( groups, 0 );
-
+	len := Length( groups );   for i:= 0 to len - 1 do groups[ i ].FreeWithoutSaving(); setLength( groups, 0 );
 	// FREE USERS
+	len := Length( users );    for i:= 0 to len - 1 do users[ i ].FreeWithoutSaving();  setLength( users, 0 );
 
-	len := Length( users );
+	// RE-CREATE ENTITIES ( BLANK )
+	len := Length( snapshot );
 
-	for i:= 0 to len - 1 do
-		users[ i ].FreeWithoutSaving();
+	for i := 0 to len - 1 do
+	begin
 
-	setLength( users, 0 );
+		if str_starts_with( snapshot[i], 'USER ' ) then
+		begin
+
+			id := StrToInt( copy( snapshot[i], 6, 11 ) );
+			len := Length( users );
+			setLength( users, len + 1 );
+			users[ len ] := TPam2User.Create( self, id );
+
+		end else
+		if str_starts_with( snapshot[i], 'GROUP ') then
+		begin
+
+			id := StrToInt( copy( snapshot[i], 7, 11 ) );
+
+			len := Length( groups );
+			setLength( groups, len + 1 );
+			groups[ len ] := TPam2Group.Create( self, id );
+
+		end else
+		if str_starts_with( snapshot[i], 'SERVICE ' ) then
+		begin
+
+			id := StrToInt( copy( snapshot[i], 9, 11 ) );
+
+			len := Length( services );
+			setLength( services, len + 1 );
+			services[ len ] := TPam2Service.Create( self, id );
+
+		end else
+		if str_starts_with( snapshot[i], 'HOST ' ) then
+		begin
+
+			id := StrToInt( copy( snapshot[i], 6, 11 ) );
+
+			len := Length( hosts );
+			setLength( hosts, len + 1 );
+			hosts[ len ] := TPam2Host.Create( self, id );
+
+		end;
+
+	end;
 
 	// ROLLBACK
-
 	len := Length( snapshot );
 
 	dispatchTo := 0;
@@ -368,46 +461,34 @@ begin
 	for i := 0 to len - 1 do
 	begin
 
-		if snapshot[i] = 'USER' then
+		if str_starts_with( snapshot[i], 'USER ' ) then
 		begin
 
-			dLen := Length( users );
-			setLength( users, dLen + 1 );
-			users[ dLen ] := TPam2User.Create( self );
-			cUser := users[ dLen ];
+			cUser := getUserById( StrToInt( copy( snapshot[i], 6, 11 ) ) );
 			dispatchTo := 1;
 
 		end else
 		
-		if snapshot[i] = 'GROUP' then
+		if str_starts_with( snapshot[i], 'GROUP ') then
 		begin
 
-			dLen := Length( groups );
-			setLength( groups, dLen + 1 );
-			groups[ dLen ]:= TPam2Group.Create( self );
-			cGroup := groups[ dLen ];
+			cGroup := getGroupById( StrToInt( copy( snapshot[i], 7, 11 ) ) );
 			dispatchTo := 2;
 
 		end else
 
-		if snapshot[i] = 'SERVICE' then
+		if str_starts_with( snapshot[i], 'SERVICE ' ) then
 		begin
-
-			dLen := Length( services );
-			setLength( services, dLen + 1 );
-			services[ dLen ] := TPam2Service.Create( self );
-			cService := services[ dLen ];
+			
+			cService := getServiceById( StrToInt( copy( snapshot[i], 9, 11 ) ) );
 			dispatchTo := 4;
 
 		end else
 
-		if snapshot[i] = 'HOST' then
+		if str_starts_with( snapshot[i], 'HOST ' ) then
 		begin
 
-			dLen := Length( hosts );
-			setLength( hosts, dLen + 1 );
-			hosts[ dLen ] := TPam2Host.Create( self );
-			cHost := hosts[ dLen ];
+			cHost := getHostById( StrToInt( copy( snapshot[i], 6, 11 ) ) );
 			dispatchTo := 3;
 
 		end else
@@ -425,7 +506,8 @@ begin
 				1: cUser.rollback( snapshot[i] );
 				2: cGroup.rollback( snapshot[i] );
 				3: cHost.rollback( snapshot[i] );
-				4: cService.rollback( snapshot[i] )
+				4: cService.rollback( snapshot[i] );
+				0: dispatchSnapshotLine( snapshot[i] )
 				else raise Exception.Create( 'Bad rollback dispatch state (' + IntToStr( dispatchTo ) + ')' );
 			end;
 
@@ -1027,6 +1109,7 @@ begin
 		if ( users[i].deleted ) then
 		begin
 
+			users[i].deleteReferences();
 			users[i].FreeWithoutSaving();
 			users[i] := NIL;
 
@@ -1052,6 +1135,7 @@ begin
 		if ( groups[i].deleted ) then
 		begin
 
+			groups[i].deleteReferences();
 			groups[i].FreeWithoutSaving();
 			groups[i] := NIL;
 
@@ -1077,6 +1161,7 @@ begin
 		if ( services[i].deleted ) then
 		begin
 
+			services[i].deleteReferences();
 			services[i].FreeWithoutSaving();
 			services[i] := NIL;
 
@@ -1102,6 +1187,7 @@ begin
 		if ( hosts[i].deleted ) then
 		begin
 
+			hosts[i].deleteReferences();
 			hosts[i].FreeWithoutSaving();
 			hosts[i] := NIL;
 
@@ -1359,8 +1445,10 @@ var i: integer;
     len: integer;
 begin
 
-	// FREE ENTITIES
+	// FREE HSGPermissions list
+	setLength( HSGPermissions, 0 );
 
+	// FREE ENTITIES
 	len := length( hosts );
 	
 	for i:=0 to len-1 do
@@ -1395,3 +1483,143 @@ begin
 
 end;
 
+function TPam2DB.bindUserToGroup ( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
+var user: TPam2User;
+    group: TPam2Group;
+begin
+
+	user := getUserByName( userName );
+	group := getGroupByName( groupName );
+
+	result := bindUserToGroup( user, group, unsave );
+
+end;
+
+function TPam2DB.bindUserToGroup ( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
+var user: TPam2User;
+    group: TPam2Group;
+begin
+	user := getUserById( userId );
+	group := getGroupById( groupId );
+	
+	result := bindUserToGroup( user, group, unsave );
+end;
+
+function TPam2DB.bindUserToGroup ( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
+begin
+	if ( user <> NIL ) and ( group <> NIL ) then
+	begin
+		user.makeMemberOf( group, unsave );
+		group.addUser( user, unsave );
+		result := TRUE;
+	end else
+	begin
+		result := FALSE;
+	end;
+end;
+
+function TPam2DB.unbindUserFromGroup( userName: AnsiString; groupName: AnsiString; const unsave: Boolean = TRUE ): Boolean;
+var user: TPam2User;
+    group: TPam2Group;
+begin
+	user := getUserByName( userName );
+	group := getGroupByName( groupName );
+
+	result := unbindUserFromGroup( user, group, unsave );
+end;
+
+function TPam2DB.unbindUserFromGroup( userId: Integer; groupId: Integer; const unsave: Boolean = TRUE ): Boolean;
+var user: TPam2User;
+    group: TPam2Group;
+begin
+	user := getUserById( userId );
+	group := getGroupById( groupId );
+
+	result := unbindUserFromGroup( user, group );
+end;
+
+function TPam2DB.unbindUserFromGroup( user: TPam2User; group: TPam2Group; const unsave: Boolean = TRUE ): Boolean;
+begin
+	if ( user <> NIL ) and ( group <> NIL ) then
+	begin
+		user.removeMembershipFrom( group, unsave );
+		group.removeUser( user, unsave );
+		result := TRUE;
+	end else
+	begin
+		result := FALSE;
+	end;
+
+end;
+
+procedure TPam2DB.bindHSG( host: TPam2Host; group: TPam2Group; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
+var i: Integer;
+	j: Integer;
+    len: Integer;
+    hsg: TPam2HSGPermission;
+
+begin
+	if ( host = NIL ) or ( group = NIL ) or ( service = NIL ) then
+		Raise Exception.Create( 'Invalid HSG Binding' );
+
+	Len := Length( HSGPermissions );
+
+	if ( remove = TRUE ) then
+	begin
+		
+		// Remove triplet policy
+		
+		for i := 0 To Len - 1 do
+		begin
+			if ( HSGPermissions[i].host.equals( host ) and HSGPermissions[i].service.equals( service ) and ( HSGPermissions[i].group.equals( group ) ) ) then
+			begin
+				for J := I + 1 To Len - 1 Do HSGPermissions[ j - 1 ] := HSGPermissions[ j ];
+				SetLength( HSGPermissions, Len - 1 );
+				addSQLStatement( 'DELETE FROM service_host_groups WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) + ' AND group_id = ' + IntToStr( group.id ) + ' LIMIT 1' );
+				exit;
+			end;
+		end;
+
+	end else
+	begin
+		
+		// Set triplet policy
+
+		for i := 0 to Len - 1 do
+		begin
+
+			if ( HSGPermissions[i].host.equals( host ) and HSGPermissions[i].service.equals( service ) and ( HSGPermissions[i].group ).equals( group ) ) then
+			begin
+				if ( HSGPermissions[i].allow <> allow ) then
+				begin
+					HSGPermissions[i].allow := allow;
+					addSQLStatement( 'UPDATE service_host_groups SET allow = ' + IntToStr( Integer( allow ) ) + ' WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) + ' AND group_id = ' + IntToStr( group.id ) + ' LIMIT 1' );
+				end;
+				exit;
+			end;
+
+		end;
+
+		hsg.host := host;
+		hsg.service := service;
+		hsg.group := group;
+		hsg.allow := allow;
+
+		setLength( HSGPermissions, Len + 1 );
+		HSGPermissions[ Len ] := hsg;
+
+		addSQLStatement( 'INSERT INTO service_host_groups ( service_id, host_id, group_id, allow ) VALUES (' + IntToStr( service.id ) + ', ' + IntToStr( host.id ) + ', ' + IntToStr( group.id ) + ', ' + IntToStr( Integer( allow ) ) + ')' );
+
+	end;
+
+end;
+
+procedure TPam2DB.bindHSG( hostId: Integer; groupId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
+begin
+	bindHSG( getHostById( hostId ), getGroupById( groupId ), getServiceById( serviceId ), allow, remove );
+end;
+
+procedure TPam2DB.bindHSG( hostName: AnsiString; groupName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
+begin
+	bindHSG( getHostByName( hostName ), getGroupByName( groupName ), getServiceByName( serviceName ), allow, remove );
+end;

@@ -131,8 +131,8 @@ begin
 		else result := '';
 	end;
 
-	if ( ( result = 'to' ) or ( result = 'for' ) or ( result = 'from' ) or ( result = 'on' ) ) 
-	     and ( ( entityType = ENTITY_USER ) or ( entityType = ENTITY_GROUP ) )
+	if ( ( result = 'to' ) or ( result = 'for' ) or ( result = 'from' ) or ( result = 'on' ) or ( result = 'where' ) or ( result = 'in' ) ) 
+	     and ( ( entityType = ENTITY_USER ) or ( entityType = ENTITY_GROUP ) or ( entityType = ENTITY_SERVICE ) or ( entityType = ENTITY_HOST ) or ( entityType = ENTITY_SERVICE_OPTION ) )
 
 	then result := '';
 

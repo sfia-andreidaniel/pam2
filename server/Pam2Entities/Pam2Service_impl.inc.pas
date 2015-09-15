@@ -14,7 +14,7 @@ begin
 
 end;
 
-constructor TPam2Service.Create( _db: TPam2DB );
+constructor TPam2Service.Create( _db: TPam2DB; sid: Integer );
 begin
 
 	db := _db;
@@ -23,7 +23,7 @@ begin
 	needSave := FALSE;
 	deleted := FALSE;
 
-	_service_id := 0;
+	_service_id := sid;
 	_service_name := '';
 
 	setLength( _options, 0 );
@@ -32,9 +32,11 @@ end;
 
 procedure TPam2Service.snapshot();
 begin
-	db.addSnapshot( 'SERVICE' );
 
-	db.addSnapshot( '_service_id: ' + IntToStr( _service_id ) );
+	if ( _service_id = 0 ) then exit; // cannot snapshot
+
+	db.addSnapshot( 'SERVICE ' + IntToStr( _service_id ) );
+
 	db.addSnapshot( '_service_name: ' + _service_name );
 	
 	db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
@@ -63,10 +65,6 @@ begin
 	propName := copy( snapshotLine, 1, dotPos - 1 );
 	propValue := copy( snapshotLine, dotPos + 2, len );
 
-	if propName = '_service_id' then
-	begin
-		_service_id := StrToInt( propValue );
-	end else
 	if propName = '_service_name' then
 	begin
 		_service_name := propValue;
@@ -162,4 +160,28 @@ begin
 		needSave := TRUE;		
 	end;
 
+end;
+
+function TPam2Service.Equals( service: TPam2Service ): Boolean;
+begin
+	if service = NIL then
+	begin
+		result := FALSE;
+	end else
+	begin
+
+		if ( ( id > 0 ) and ( id = service.id ) ) or
+		   ( ( serviceName <> '' ) and ( serviceName = service.serviceName ) )
+		then result := TRUE
+		else result := FALSE;
+
+	end;
+end;
+
+procedure TPam2Service.deleteReferences();
+begin
+end;
+
+procedure TPam2Service.saveReferences();
+begin
 end;

@@ -16,7 +16,8 @@ type TPam2User = class
 			_admin: boolean;
 			_password: AnsiString;
 
-			_groups: Array of Integer;
+			_groups: TPam2GroupList;
+
 			_passwords: Array of TServiceUserPassword;
 
 			saved: boolean;
@@ -42,17 +43,32 @@ type TPam2User = class
 			property password   : AnsiString read _password   write setPassword;
 
 			constructor Create( _db: TPam2DB; uid: integer; login_name: AnsiString; real_name: AnsiString; user_email: AnsiString; user_enabled: boolean; is_admin: boolean; pam2_password: AnsiString; isSaved: boolean );
-			constructor Create( _db: TPam2DB );
+			constructor Create( _db: TPam2DB; uid: integer );
 
-			function    Save(): Boolean;
-			
 			destructor  Free();
 			destructor  FreeWithoutSaving();
+
+			function  save(): Boolean;
+			function  equals( user: TPam2User ): Boolean;
 
 			procedure remove();
 			procedure snapshot();
 			procedure updateIdAfterInsertion();
 			procedure rollback( snapshotLine: AnsiString );
+
+			procedure makeMemberOf( group: TPam2Group; const unsave: boolean = TRUE );
+			procedure removeMembershipFrom( group: TPam2Group; const unsave: boolean = TRUE );
+
+			{ delete all user references from the references tables }
+			procedure deleteReferences();
+
+			{ saves all user references from the references tables }
+			procedure saveReferences();
+
+			{ test to see if a user is member of a group or not }
+			function isMemberOf( groupName: AnsiString ): Boolean;
+			function isMemberOf( groupId: Integer ): Boolean;
+			function isMemberOf( group: TPam2Group ): Boolean;
 
 	end;
 

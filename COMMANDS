@@ -1,0 +1,30 @@
+## 
+#  DEFINITIONS
+#
+#  $GROUPNAME   = [a-zA-Z0-9_]{1,30}
+#  $USERNAME    = [a-zA-Z0-9_]{1,16}
+#  $HOSTNAME    = [a-zA-Z0-9_.-]{1,64}
+#  $SERVICENAME = [a-zA-Z0-9_]{1,16}
+# 
+#  {GROUP_LIST}   = $GROUPNAME_1 [ $GROUPNAME_2 ... $GROUPNAME_N ] 
+#                   or *
+# 
+#  {USER_LIST}    = $USERNAME_1 [ $USERNAME_2 ... $USERNAME_N ] 
+#                   or *
+# 
+#  {HOST_LIST}    = $HOSTNAME_1 [ $HOSTNAME_2 ... $HOSTNAME_N ] 
+#                   or *
+# 
+#  {SERVICE_LIST} = $SERVICENAME_1 [ $SERVICENAME_2 ... $SERVICENAME_N ] 
+#                   or *
+## 
+
+# add or remove a group
+GROUP (ADD|REMOVE) $GROUPNAME
+
+# add or remove user membership for a group
+GROUP (ADD|REMOVE) $GROUPNAME (FOR|TO) (USER|USERS) {USER_LIST}
+
+# allow or deny, or undefine a group for using one or more services on one or more hosts
+GROUP (ADD|REMOVE|UNSET) $GROUPNAME (FROM|TO) (SERVICE|SERVICES) {SERVICE_LIST} ON {HOST_LIST}
+

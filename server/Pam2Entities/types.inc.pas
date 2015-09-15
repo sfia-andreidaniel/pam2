@@ -45,3 +45,16 @@ type TPam2ServiceOptionBinding = record
 	    option_value: AnsiString;
 	    default_value: AnsiString;
 end;
+
+type TPam2GroupList = Array of TPam2Group;
+type TPam2UserList  = Array of TPam2User;
+
+{ HOST + GROUP + SERVICE permission }
+type TPam2HSGPermission  = record
+	
+	host: TPam2Host;
+	service: TPam2Service;
+	group: TPam2Group;
+
+	allow: boolean;
+end;

@@ -34,14 +34,7 @@ const ENCTYPE_PLAIN         = 0;
       MAXLEN_SERVICEOPTION  = 45;
       MINLEN_PAM2_PASSWORD  = 6;
 
-      ENTITY_USER           = 0;
-      ENTITY_HOST           = 1;
-      ENTITY_GROUP          = 2;
-      ENTITY_SERVICE        = 3;
-      ENTITY_SERVICE_OPTION = 4;
-      ENTITY_EMAIL          = 5;
-      ENTITY_REAL_NAME      = 6;
-
       OP_ADD                = 1;
       OP_REMOVE             = 0;
-
+      OP_UNSET              = 2;
+      

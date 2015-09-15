@@ -17,9 +17,6 @@ interface uses
 	{ system utilities unit }
 	sysutils,
 
-	{ unit that implements a mechanism for parsing arguments of a query ( or command line arguments ) }
-	QueryParser,
-
 	{ JSON utilities unit }
 	JSON,
 
@@ -29,6 +26,18 @@ interface uses
     {end of database support}
 
 ; { end of units used by the interface }
+
+
+{ PUBLIC CONSTANTS }
+const ENTITY_USER           = 0;
+      ENTITY_HOST           = 1;
+      ENTITY_GROUP          = 2;
+      ENTITY_SERVICE        = 3;
+      ENTITY_SERVICE_OPTION = 4;
+      ENTITY_EMAIL          = 5;
+      ENTITY_REAL_NAME      = 6;
+
+
 
 { FORWARD DECLARATIONS. This unit implements these classes: }
 
@@ -50,6 +59,9 @@ type TPam2ExecutionContext = class;
 { root in-memory database class that holds all the Pam2Entities classes }
 type TPam2DB               = class;
 
+{ command parser }
+type TQueryParser          = class;
+
 { COMMON TYPES, used by the unit                     }
 {$I ./Pam2Entities/types.inc.pas                     }
 
@@ -61,6 +73,7 @@ type TPam2DB               = class;
 {$I ./Pam2Entities/Pam2Host_decl.inc.pas             }
 {$I ./Pam2Entities/Pam2ExecutionContext_decl.inc.pas }
 {$I ./Pam2Entities/Pam2DB_decl.inc.pas               }
+{$I ./Pam2Entities/QueryParser_decl.inc.pas          }
 
 implementation uses md5;
 
@@ -88,9 +101,12 @@ implementation uses md5;
 { implementation methods of TPam2DB class            }
 {$I ./Pam2Entities/Pam2DB_impl.inc.pas               }
 
+{ implementation methods of TQueryParser class       }
+{$I ./Pam2Entities/QueryParser_impl.inc.pas          }
+
 initialization
 
-{ some assertions made by the unit                  }	
-{$I ./Pam2Entities/asserts_init.inc.pas             }
+{ some assertions made by the unit                   }	
+{$I ./Pam2Entities/asserts_init.inc.pas              }
 
 end.

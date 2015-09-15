@@ -21,11 +21,10 @@ type TPam2Service = class
 		public
 
 			property    id           : Integer    read _service_id;
-
 			property    serviceName  : AnsiString read _service_name    write   setServiceName;
 
 			constructor Create( _db: TPam2DB; sid: integer; sname: AnsiString; isSaved: boolean );
-			constructor Create( _db: TPam2DB );
+			constructor Create( _db: TPam2DB; sid: integer );
 
 			destructor  Free();
 			destructor  FreeWithoutSaving();
@@ -34,5 +33,10 @@ type TPam2Service = class
 			procedure   snapshot();
 			procedure   updateIdAfterInsertion();
 			procedure   rollback( snapshotLine: AnsiString );
+
+			function    equals( service: TPam2Service ): Boolean;
+
+			procedure   deleteReferences();
+			procedure   saveReferences();
 
 	end;

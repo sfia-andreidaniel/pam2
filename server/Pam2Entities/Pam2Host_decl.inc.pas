@@ -43,7 +43,7 @@ type TPam2Host = class
 			property machineServices: TStrArray read getMachineServices write setMachineServices;
 
 			constructor Create( _db: TPam2DB; hid: integer; hname: AnsiString; defaultHost: boolean; isSaved: boolean );
-			constructor Create( _db: TPam2DB );
+			constructor Create( _db: TPam2DB; hid: integer );
 
 			function    Save(): Boolean;
 			
@@ -54,5 +54,10 @@ type TPam2Host = class
 			procedure snapshot();
 			procedure updateIdAfterInsertion();
 			procedure rollback( snapshotLine: AnsiString );
+
+			function Equals( host: TPam2Host ): Boolean;
+
+			procedure saveReferences();
+			procedure deleteReferences();
 
 	end;

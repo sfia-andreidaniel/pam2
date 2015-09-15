@@ -11,7 +11,7 @@ type TPam2Group = class
 			_group_name: AnsiString;
 			_enabled: boolean;
 
-			_users: Array of Integer;
+			_users: TPam2UserList;
 
 			saved: boolean;
 			needSave: boolean;
@@ -28,7 +28,7 @@ type TPam2Group = class
 			property enabled   : Boolean    read _enabled    write setEnabled;
 
 			constructor Create( _db: TPam2DB; gid: integer; group_name: AnsiString; _is_enabled: Boolean; isSaved: boolean );
-			constructor Create( _db: TPam2DB );
+			constructor Create( _db: TPam2DB; gid: Integer );
 
 			function    Save(): Boolean;
 			
@@ -40,5 +40,13 @@ type TPam2Group = class
 			procedure updateIdAfterInsertion();
 			procedure rollback( snapshotLine: AnsiString );
 
-	end;
+			procedure addUser( user: TPam2User; const unsave: boolean = TRUE );
+			procedure removeUser( user: TPam2User; const unsave: boolean = TRUE );
+
+			function Equals( group: TPam2Group ): Boolean;
+
+			procedure deleteReferences();
+			procedure saveReferences();
+
+end;
 

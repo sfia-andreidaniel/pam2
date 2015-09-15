@@ -44,7 +44,34 @@ function str_join( arr: TStrArray; const delimiter: String = '' ): AnsiString;
 }
 function str_minimal_regex( S: AnsiString; Expr: AnsiString ): Boolean;
 
+procedure array_unique( var S: TStrArray );
+function  array_find  ( haystack: TStrArray; needle: AnsiString ): Integer;
+
 implementation
+
+function  array_find( haystack: TStrArray; needle: AnsiString ): Integer;
+var i: Integer;
+    len: Integer;
+begin
+    result := -1;
+    len := Length( haystack );
+
+    if Len > 0 then
+    begin
+
+        for i := 0 To Len - 1 Do begin
+
+            if ( haystack[ i ] = needle ) then
+            begin
+                result := i;
+                exit;
+            end;
+
+        end;
+
+    end;
+
+end;
 
 function str_join( arr: TStrArray; const delimiter: String = '' ): AnsiString;
 var i: Integer;
@@ -382,6 +409,42 @@ begin
         result[ length( result ) - 1 ] := current;
     end;
     
+end;
+
+procedure array_unique( var S: TStrArray );
+var i: Integer;
+    j: Integer;
+    k: Integer;
+    Len: Integer;
+begin
+    
+    Len := Length( s );
+
+    for i := Len - 1 downto 0 do
+    begin
+
+        for j := i + 1 to Len - 1 do
+        begin
+        
+            if s[ i ] = s[ j ] then
+            begin
+
+                for k := j + 1 to Len - 1 do
+                begin
+                    s[ k - 1 ] := s[ k ];
+                end;
+
+                Len := Len - 1;
+
+                setLength( s, Len );
+
+                break;
+
+            end;
+        end;
+
+    end;
+
 end;
 
 end.
