@@ -193,7 +193,8 @@ begin
 	begin
 		deleted := TRUE;
 		needSave := TRUE;
-		db.unbindHSG( self );	
+		db.unbindHSG( self );
+		db.unbindHSU( self );
 	end;
 
 end;

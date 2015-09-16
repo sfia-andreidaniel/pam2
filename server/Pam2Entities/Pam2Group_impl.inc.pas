@@ -106,7 +106,6 @@ begin
 				db.addSQLStatement( 'INSERT INTO `group` ( `group_name`, `group_enabled` ) VALUES ( "' + _group_name + '", ' + IntToStr( Integer( _enabled ) ) + ')' );
 			end else
 			begin
-				
 				// DO UPDATE
 				db.addSQLStatement( 'UPDATE `group` SET `group_name` = "' + _group_name + '", `group_enabled` = ' + IntToStr( Integer( _enabled ) ) + ' WHERE `group_id` = ' + IntToStr( _group_id ) + ' LIMIT 1' );
 			end;
@@ -164,7 +163,7 @@ begin
 	begin
 		db.addExplanation( 'Rename group "' + _group_name + '" to "' + gName + '"' );
 		_group_name := gName;
-		saved := FALSE;
+		needSave := TRUE;
 	end;
 end;
 
@@ -180,7 +179,7 @@ begin
 			db.addExplanation( 'Enable group "' + _group_name + '"' );
 
 		_enabled := value;
-		saved := FALSE;
+		needSave := TRUE;
 
 	end;
 

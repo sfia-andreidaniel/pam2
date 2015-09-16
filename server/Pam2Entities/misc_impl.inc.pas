@@ -47,8 +47,10 @@ end;
 
 function is_realName( value: AnsiString ): Boolean;
 begin
-	if ( length( value ) = 0 ) or ( length(value) > MAXLEN_REALNAME )
-		or ( not str_match_chars( value, FMT_REALNAME ) )
+
+	console.warn( 'is_realname: "' + value + '" "' + FMT_REALNAME + '"', MAXLEN_REALNAME );
+
+	if ( length( value ) = 0 ) or ( length(value) > MAXLEN_REALNAME ) or ( not str_match_chars( value, FMT_REALNAME ) )
 		then result := FALSE
 		else result := TRUE;
 end;
@@ -74,9 +76,10 @@ begin
 
 	if ( len < 3 ) or ( len > MAXLEN_EMAIL ) 
 		or ( not str_match_chars( value, FMT_EMAIL ) )
-		or ( not str_match_chars( value, FMT_EMAIL_BEGIN ) )
+		or ( not str_match_chars( copy(value, 1, 1 ), FMT_EMAIL_BEGIN ) )
 		then result := FALSE
 		else result := TRUE;
+
 
 	if ( result = TRUE ) then
 	begin
@@ -106,6 +109,8 @@ begin
 
 		end;
 
+		console.warn( 'aici' );
+
 		if ( minMonkeyPos < 1 ) or ( numMonkeys <> 1 ) or ( minDot = minMonkeyPos - 1 ) or
 		   ( maxDot = len - 1 ) 
 		   then result := FALSE;
@@ -122,25 +127,55 @@ begin
 		else result := trim( value );
 
 	case entityType of
-			ENTITY_USER           : if ( not is_username( result ) ) then result := '';
-			ENTITY_GROUP          : if ( not is_groupname( result ) ) then result := '';
-			ENTITY_SERVICE        : if ( not is_servicename( result ) ) then result := '';
-			ENTITY_HOST           : if ( not is_hostname( result ) ) then result := '';
-			ENTITY_SERVICE_OPTION : if ( not is_serviceoption( result ) ) then result := '';
-			ENTITY_REAL_NAME      : if ( not is_realname( result ) ) then result := ''
-		else result := '';
+			ENTITY_USER           : begin if ( not is_username( result ) ) then result := ''; end;
+			ENTITY_GROUP          : begin if ( not is_groupname( result ) ) then result := ''; end;
+			ENTITY_SERVICE        : begin if ( not is_servicename( result ) ) then result := ''; end;
+			ENTITY_HOST           : begin if ( not is_hostname( result ) ) then result := ''; end;
+			ENTITY_SERVICE_OPTION : begin if ( not is_serviceoption( result ) ) then result := ''; end;
+			ENTITY_REAL_NAME      : begin if ( not is_realname( result ) ) then result := ''; end;
+			ENTITY_EMAIL          : begin if ( not is_email( result ) ) then result := ''; end;
+		else begin result := ''; end;
 	end;
 
-	if ( ( result = 'to' ) or ( result = 'for' ) or ( result = 'from' ) or ( result = 'on' ) or ( result = 'where' ) or ( result = 'in' ) ) 
-	     and ( ( entityType = ENTITY_USER ) or ( entityType = ENTITY_GROUP ) or ( entityType = ENTITY_SERVICE ) or ( entityType = ENTITY_HOST ) or ( entityType = ENTITY_SERVICE_OPTION ) )
-
-	then result := '';
+	if ( ( result = 'to' ) or 
+		 ( result = 'for' ) or 
+		 ( result = 'from' ) or 
+		 ( result = 'on' ) or 
+		 ( result = 'where' ) or 
+		 ( result = 'in' ) 
+	) and ( 
+		( entityType = ENTITY_USER ) or 
+		( entityType = ENTITY_GROUP ) or 
+		( entityType = ENTITY_SERVICE ) or 
+		( entityType = ENTITY_HOST ) or 
+		( entityType = ENTITY_SERVICE_OPTION ) 
+	) then result := '';
 
 end;
 
 // removes the element @position index, and returns the new length of the array
 
 function array_remove( var a: TPam2HSGPermission_List; index: Integer ): Integer;
+var i: Integer;
+begin
+	
+	result := Length( a );
+
+	if ( index >= 0 ) and ( index <= result - 1 ) then
+	begin
+		for i := index + 1 to result - 1 do
+		begin
+			a[ i - 1 ] := a[ i ];
+		end;
+		result := result - 1;
+		setLength( a, result );
+	end;
+
+end;
+
+// removes the element @position index, and returns the new length of the array
+
+function array_remove( var a: TPam2HSUPermission_List; index: Integer ): Integer;
 var i: Integer;
 begin
 	

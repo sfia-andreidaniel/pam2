@@ -1,11 +1,16 @@
 ## 
 #  DEFINITIONS
 #
-#  $GROUPNAME   = [a-zA-Z0-9_]{1,30}
-#  $USERNAME    = [a-zA-Z0-9_]{1,16}
-#  $HOSTNAME    = [a-zA-Z0-9_.-]{1,64}
-#  $SERVICENAME = [a-zA-Z0-9_]{1,16}
+#  $GROUPNAME     = a .. z, A .. Z, 0 .. 9, _                  ( minlen = 1, maxlen = 30 )
+#  $USERNAME      = a .. z, A .. Z, 0 .. 9, _                  ( minlen = 1, maxlen = 16 )
+#  $HOSTNAME      = a .. z, A .. Z, 0 .. 0, ., _, -,           ( minlen = 1, maxlen = 64 )
+#  $SERVICENAME   = a .. z, A .. Z, 0 .. 9, _                  ( minlen = 1, maxlen = 16 )
 # 
+#  $EMAIL_ADDRESS = a .. z, A .. Z, 0 .. 9, ., @, -,           ( minlen = 3, maxlen = 96 )
+#  $REAL_NAME     = a .. z, A .. Z, 0 .. 9, ., space, &, @, -, ( minlen = 1, maxlen = 64 )
+#  $PASSWORD      = any
+#
+#
 #  {GROUP_LIST}   = $GROUPNAME_1 [ $GROUPNAME_2 ... $GROUPNAME_N ] 
 #                   or *
 # 
@@ -27,4 +32,20 @@ GROUP (ADD|REMOVE) $GROUPNAME (FOR|TO) (USER|USERS) {USER_LIST}
 
 # allow or deny, or undefine a group for using one or more services on one or more hosts
 GROUP (ADD|REMOVE|UNSET) $GROUPNAME (FROM|TO) (SERVICE|SERVICES) {SERVICE_LIST} ON {HOST_LIST}
+
+# enable or disable some groups
+GROUP (ENABLE|DISABLE) {GROUP_LIST}
+
+# add or remove a user
+USER ADD $USERNAME [ SET [email $EMAIL_ADDRESS] [real_name $REAL_NAME] [enabled (yes|no)] [admin (yes|no)] [password $PASSWORD] ]
+USER REMOVE $USERNAME
+
+# enable or remove a user
+USER (ENABLE|DISABLE) $USERNAME
+
+# add or remove a user from a group or from a groups list
+USER (ADD|REMOVE) $USERNAME (FOR|TO) (GROUP|GROUPS) {GROUPS_LIST}
+
+# allow, deny or undefine a user for using one or more services on one or more hosts
+USER (ADD|REMOVE|UNSET) $USERNAME (FROM|TO) (SERVICE|SERVICES) {SERVICE_LIST} ON {HOST_LIST}
 

@@ -269,6 +269,45 @@ begin
 		FQuery.Free;
 		FTransaction.Free;
 
+/// LOADING HOST + SERVICE + USERS PERMISSIONS
+
+		FTransaction := TSQLTransaction.Create(NIL);
+
+		with FTransaction do
+		begin
+			Database := db;
+			StartTransaction;
+		end;
+
+		FQuery := TSQLQuery.Create(NIL);
+		with FQuery do
+		begin
+			Database := db;
+			Transaction := FTransaction;
+			ReadOnly := TRUE;
+			SQL.Clear;
+			SQL.Add('SELECT host_id, service_id, user_id, allow FROM `service_host_users`' );
+		end;
+
+		FQuery.Open;
+
+		While not FQuery.EOF do
+		begin
+
+			bindHSU( 
+				FQuery.FieldByName( 'host_id' ).asInteger,
+				FQuery.FieldByName( 'user_id' ).asInteger,
+				FQuery.FieldByName( 'service_id').asInteger,
+				Boolean( FQuery.FieldByName('allow').asInteger ) 
+			);
+			
+			FQuery.Next;
+
+		end;
+
+		FQuery.Free;
+		FTransaction.Free;
+
 
 /// CLEAR GENERATED SQL STATEMENTS BY calling bind* functions
 		setLength( sqlStatements, 0 );
@@ -281,6 +320,7 @@ begin
 		Console.log('-', Length(services), 'services' );
 		Console.log('-', Length(UGBindings), 'UG bindings' );
 		Console.log('-', Length(HSGPermissions), 'HSG permissions' );
+		Console.log('-', Length(HSUPermissions), 'HSU permissions' );
 
 	except
 

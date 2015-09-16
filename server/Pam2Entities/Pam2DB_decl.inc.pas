@@ -21,6 +21,9 @@ type TPam2DB = class
 			{ ( host, service, group, allow ) permission }
 			HSGPermissions : TPam2HSGPermission_List;
 
+			{ ( host, service, user, allow ) permissions }
+			HSUPermissions : TPam2HSUPermission_List;
+
 			{ ( user, group ) binding }
 			UGBindings     : TPam2UGBinding_List;
 
@@ -32,6 +35,9 @@ type TPam2DB = class
 			function  getAllGroupsList(): TStrArray;
 			function  getAllServicesList(): TStrArray;
 			function  getAllHostsList(): TStrArray;
+
+			function  getHasErrors(): Boolean;
+			procedure setHasErrors( on: Boolean );
 
 			procedure removeAndDisposeDeletedObjects();
 			procedure dispatchSnapshotLine( snapshotLine: AnsiString );
@@ -47,6 +53,9 @@ type TPam2DB = class
 			property allHosts         : TStrArray read getAllHostsList;
 			property allServices      : TStrArray read getAllServicesList;
 			property allGroups        : TStrArray read getAllGroupsList;
+
+			property hasErrors        : Boolean   read getHasErrors write setHasErrors;
+			property errorMessages    : TStrArray read errors;
 
 
 			function getUserById      ( userId: Integer ): TPam2User;
@@ -120,10 +129,20 @@ type TPam2DB = class
 			procedure unbindHSG        ( host: TPam2Host );
 			procedure unbindHSG        ( service: TPam2Service );
 			procedure unbindHSG        ( group: TPam2Group );
-
 			function  getHSGPermissions( host: TPam2Host )       : TPam2HSGPermission_List;
 			function  getHSGPermissions( service: TPam2Service ) : TPam2HSGPermission_List;
 			function  getHSGPermissions( group: TPam2Group )     : TPam2HSGPermission_List;
+
+			{ HOST + SERVICE + USER bindings routines }
+			procedure bindHSU          ( host: TPam2Host; user: TPam2User; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSU          ( hostId: Integer; userId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
+			procedure bindHSU          ( hostName: AnsiString; userName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
+			procedure unbindHSU        ( host: TPam2Host );
+			procedure unbindHSU        ( service: TPam2Service );
+			procedure unbindHSU        ( user: TPam2User );
+			function  getHSUPermissions( host: TPam2Host )       : TPam2HSUPermission_List;
+			function  getHSUPermissions( service: TPam2Service ) : TPam2HSUPermission_List;
+			function  getHSUPermissions( user: TPam2User )       : TPam2HSUPermission_List;
 
 			{ GROUP + USER bindings routines }
 			procedure bindUG           ( user: TPam2User; group: TPam2Group      );

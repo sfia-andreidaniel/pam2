@@ -23,7 +23,7 @@ const ENCTYPE_PLAIN         = 0;
       FMT_EMAIL             = '0123456789abcdefghijklmnopqrstuvwxyz_@.';
       FMT_EMAIL_BEGIN       = 'abcdefghijklmnopqrstuvwxyz_';
 
-      FMT_REALNAME          = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&. @';
+      FMT_REALNAME          = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&. @-';
 
       MAXLEN_USER           = 16;
       MAXLEN_GROUP          = 30;
@@ -37,4 +37,5 @@ const ENCTYPE_PLAIN         = 0;
       OP_ADD                = 1;
       OP_REMOVE             = 0;
       OP_UNSET              = 2;
-      
+      OP_ENABLE             = 3;
+      OP_DISABLE            = 4;

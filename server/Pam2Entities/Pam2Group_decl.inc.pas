@@ -19,11 +19,10 @@ type TPam2Group = class
 			procedure setEnabled  ( value: Boolean );
 
 		public
-			
 
-			property id        : integer    read _group_id;
-			property groupName : AnsiString read _group_name write setGroupName;
-			property enabled   : Boolean    read _enabled    write setEnabled;
+			property    id        : integer    read _group_id;
+			property    groupName : AnsiString read _group_name write setGroupName;
+			property    enabled   : Boolean    read _enabled    write setEnabled;
 
 			constructor Create( _db: TPam2DB; gid: integer; group_name: AnsiString; _is_enabled: Boolean; isSaved: boolean );
 			constructor Create( _db: TPam2DB; gid: Integer );
@@ -33,15 +32,15 @@ type TPam2Group = class
 			destructor  Free();
 			destructor  FreeWithoutSaving();
 
-			procedure remove();
-			procedure snapshot();
-			procedure updateIdAfterInsertion();
-			procedure rollback( snapshotLine: AnsiString );
+			procedure 	remove();
+			procedure 	snapshot();
+			procedure 	updateIdAfterInsertion();
+			procedure 	rollback( snapshotLine: AnsiString );
 
-			procedure addUser   ( user: TPam2User; const unsave: boolean = TRUE );
-			procedure removeUser( user: TPam2User; const unsave: boolean = TRUE );
+			procedure 	addUser   ( user: TPam2User; const unsave: boolean = TRUE );
+			procedure 	removeUser( user: TPam2User; const unsave: boolean = TRUE );
 
-			function  equals( group: TPam2Group ): Boolean;
+			function  	equals( group: TPam2Group ): Boolean;
 
 end;
 

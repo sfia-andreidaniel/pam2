@@ -14,6 +14,7 @@ begin
 	setLength( snapshot, 0 );
 
 	setLength( HSGPermissions, 0 );
+	setLength( HSUPermissions, 0 );
 	setLength( UGBindings, 0 );
 
 	Console.log('Loading PAM2DB');
@@ -36,7 +37,7 @@ begin
 		raise Exception.Create( 'User "' + userName + '" not found!' );
 
 	if user.enabled = FALSE then
-		raise Exception.Create( 'Account disabled' );
+		raise Exception.Create( 'Account "' + userName + '" is disabled, and cannot execute any command on server!' );
 
 	mdPwd := encryptPassword( password );
 
@@ -151,6 +152,12 @@ begin
 
 	for i := 0 to Len - 1 do
 		addSnapshot( 'HSG: ' + IntToStr( HSGPermissions[i].host.id ) + ' ' + IntToStr( HSGPermissions[i].service.id ) + ' ' + IntToStr( HSGPermissions[i].group.id ) + ' ' + IntToStr( Integer( HSGPermissions[i].allow ) ) );
+
+	// SNAPSHOT HSU PERMISSIONS
+	len := Length( HSUPermissions );
+
+	for i := 0 to Len - 1 do
+		addSnapshot( 'HSU: ' + IntToStr( HSUPermissions[i].host.id ) + ' ' + IntToStr( HSUPermissions[i].service.id ) + ' ' + IntToStr( HSUPermissions[i].user.id ) + ' ' + IntToStr( Integer( HSUPermissions[i].allow ) ) );
 
 	// SNAPSHOT UG BINDINGS
 	len := Length( UGBindings );
@@ -387,6 +394,19 @@ begin
 			addSQLStatement( 'INSERT INTO service_host_groups ( host_id, service_id, group_id, allow ) VALUES ( ' + IntToStr( HSGPermissions[i].host.id ) + ', ' + IntToStr( HSGPermissions[i].service.id ) + ', ' + IntToStr( HSGPermissions[i].group.id ) + ', ' + IntToStr( Integer( HSGPermissions[i].allow ) ) + ')' );
 		addSQLStatement( 'UNLOCK TABLES' );
 	end;
+
+	// TODO: Determine whether the service_host_users table should be regenerated or not
+	addSQLStatement( 'TRUNCATE TABLE service_host_users' );
+	
+	len := Length( HSUPermissions );
+	if ( len > 0 ) then
+	begin
+		addSQLStatement( 'LOCK TABLES service_host_users WRITE' );
+		for i := 0 to len - 1 do
+			addSQLStatement( 'INSERT INTO service_host_users ( host_id, service_id, user_id, allow ) VALUES ( ' + IntToStr( HSUPermissions[i].host.id ) + ', ' + IntToStr( HSUPermissions[i].service.id ) + ', ' + IntToStr( HSUPermissions[i].user.id ) + ', ' + IntToStr( Integer( HSUPermissions[i].allow ) ) + ')' );
+		addSQLStatement( 'UNLOCK TABLES' );
+	end;
+
 	}
 
 	{ WE'RE ALMOST DONE ... }
@@ -434,6 +454,7 @@ begin
 	// CLEAR EXISTING BINDINGS AND PERMISSIONS MAPPINGS
 	setLength( UGBindings, 0 );
 	setLength( HSGPermissions, 0 );
+	setLength( HSUPermissions, 0 );
 
 	// RE-CREATE ENTITIES ( WITHOUT ANY PROPERTIES AT FIRST )
 	len := Length( snapshot );
@@ -1231,6 +1252,9 @@ begin
 	// FREE HSGPermissions list
 	setLength( HSGPermissions, 0 );
 
+	// FREE HSUPermissions list
+	setLength( HSUPermissions, 0 );
+
 	// FREE UGBindings
 	setLength( UGBindings, 0 );
 
@@ -1453,6 +1477,194 @@ begin
 
 end;
 
+{ BEGIN: HSU PERMISSIONS  }
+
+procedure TPam2DB.bindHSU( host: TPam2Host; user: TPam2User; service: TPam2Service; allow: Boolean; const remove: Boolean = FALSE );
+var i: Integer;
+	j: Integer;
+    len: Integer;
+    hsu: TPam2HSUPermission;
+
+begin
+	if ( host = NIL ) or ( user = NIL ) or ( service = NIL ) then
+		Raise Exception.Create( 'Invalid HSU Binding' );
+
+	Len := Length( HSUPermissions );
+
+	if ( remove = TRUE ) then
+	begin
+		
+		// Remove triplet policy
+		
+		for i := 0 To Len - 1 do
+		begin
+			if ( HSUPermissions[i].host.equals( host ) and HSUPermissions[i].service.equals( service ) and ( HSUPermissions[i].user.equals( user ) ) ) then
+			begin
+				for J := I + 1 To Len - 1 Do HSUPermissions[ j - 1 ] := HSUPermissions[ j ];
+				SetLength( HSUPermissions, Len - 1 );
+				addSQLStatement( 'DELETE FROM service_host_users WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) + ' AND user_id = ' + IntToStr( user.id ) + ' LIMIT 1' );
+				exit;
+			end;
+		end;
+
+	end else
+	begin
+		
+		// Set triplet policy
+
+		for i := 0 to Len - 1 do
+		begin
+
+			if ( HSUPermissions[i].host.equals( host ) and HSUPermissions[i].service.equals( service ) and ( HSUPermissions[i].user ).equals( user ) ) then
+			begin
+				if ( HSUPermissions[i].allow <> allow ) then
+				begin
+					HSUPermissions[i].allow := allow;
+					addSQLStatement( 'UPDATE service_host_users SET allow = ' + IntToStr( Integer( allow ) ) + ' WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) + ' AND user_id = ' + IntToStr( user.id ) + ' LIMIT 1' );
+				end;
+				exit;
+			end;
+
+		end;
+
+		hsu.host := host;
+		hsu.service := service;
+		hsu.user := user;
+		hsu.allow := allow;
+
+		setLength( HSUPermissions, Len + 1 );
+		HSUPermissions[ Len ] := hsu;
+
+		addSQLStatement( 'INSERT INTO service_host_users ( service_id, host_id, user_id, allow ) VALUES (' + IntToStr( service.id ) + ', ' + IntToStr( host.id ) + ', ' + IntToStr( user.id ) + ', ' + IntToStr( Integer( allow ) ) + ')' );
+
+	end;
+
+end;
+
+procedure TPam2DB.bindHSU( hostId: Integer; userId: Integer; serviceId: Integer; allow: Boolean; const remove: Boolean = FALSE );
+begin
+	bindHSU( getHostById( hostId ), getUserById( userId ), getServiceById( serviceId ), allow, remove );
+end;
+
+procedure TPam2DB.bindHSU( hostName: AnsiString; userName: AnsiString; serviceName: AnsiString; allow: Boolean; const remove: Boolean = FALSE );
+begin
+	bindHSU( getHostByName( hostName ), getUserByName( userName ), getServiceByName( serviceName ), allow, remove );
+end;
+
+procedure TPam2DB.unbindHSU ( host: TPam2Host );
+var len: Integer;
+    i: Integer;
+    removed: boolean;
+begin
+	removed := FALSE;
+	len := Length( HSUPermissions );
+	for i := Len - 1 downto 0 do begin
+		if ( HSUPermissions[i].host.equals( host ) ) then begin
+			removed := TRUE;
+			Len := array_remove( HSUPermissions, i );
+		end;
+	end;
+	if ( removed = TRUE ) and ( host.id <> 0 ) then begin
+		addSQLStatement( 'DELETE FROM service_host_users WHERE host_id = ' + IntToStr( host.id ) );
+	end;
+end;
+
+procedure TPam2DB.unbindHSU ( service: TPam2Service );
+var len: Integer;
+    i: Integer;
+    removed: boolean;
+begin
+	removed := FALSE;
+	len := Length( HSUPermissions );
+	for i := Len - 1 downto 0 do begin
+		if ( HSUPermissions[i].service.equals( service ) ) then begin
+			removed := TRUE;
+			Len := array_remove( HSUPermissions, i );
+		end;
+	end;
+	if ( removed = TRUE ) and ( service.id <> 0 ) then begin
+		addSQLStatement( 'DELETE FROM service_host_users WHERE service_id = ' + IntToStr( service.id ) );
+	end;
+end;
+
+procedure TPam2DB.unbindHSU ( user: TPam2User );
+var len: Integer;
+    i: Integer;
+    removed: boolean;
+begin
+	removed := FALSE;
+	len := Length( HSUPermissions );
+	for i := Len - 1 downto 0 do begin
+		if ( HSUPermissions[i].user.equals( user ) ) then begin
+			removed := TRUE;
+			Len := array_remove( HSUPermissions, i );
+		end;
+	end;
+	if ( removed = TRUE ) and ( user.id <> 0 ) then begin
+		addSQLStatement( 'DELETE FROM service_host_users WHERE user_id = ' + IntToStr( user.id ) );
+	end;
+end;
+
+function  TPam2DB.getHSUPermissions( host: TPam2Host ) : TPam2HSUPermission_List;
+var Len: Integer;
+    i: Integer;
+    RLen: Integer;
+begin
+	RLen := 0;
+	setLength( result, RLen );
+	Len := Length( HSUPermissions );
+	for i := 0 to Len - 1 do
+	begin
+		if ( HSUPermissions[i].host.equals( host ) ) then
+		begin
+			RLen := RLen + 1;
+			setLength( result, RLen );
+			result[ RLen - 1 ] := HSUPermissions[ i ];
+		end;
+	end;
+end;
+
+function  TPam2DB.getHSUPermissions( service: TPam2Service ) : TPam2HSUPermission_List;
+var Len: Integer;
+    i: Integer;
+    RLen: Integer;
+begin
+	RLen := 0;
+	setLength( result, RLen );
+	Len := Length( HSUPermissions );
+	for i := 0 to Len - 1 do
+	begin
+		if ( HSUPermissions[i].service.equals( service ) ) then
+		begin
+			RLen := RLen + 1;
+			setLength( result, RLen );
+			result[ RLen - 1 ] := HSUPermissions[ i ];
+		end;
+	end;
+end;
+
+function  TPam2DB.getHSUPermissions( user: TPam2User ) : TPam2HSUPermission_List;
+var Len: Integer;
+    i: Integer;
+    RLen: Integer;
+begin
+	RLen := 0;
+	setLength( result, RLen );
+	Len := Length( HSUPermissions );
+	for i := 0 to Len - 1 do
+	begin
+		if ( HSUPermissions[i].user.equals( user ) ) then
+		begin
+			RLen := RLen + 1;
+			setLength( result, RLen );
+			result[ RLen - 1 ] := HSUPermissions[ i ];
+		end;
+	end;
+
+end;
+
+{ END:   HSU PERMISSIONS }
+
 procedure TPam2DB.bindUG ( user: TPam2User; group: TPam2Group );
 var i: Integer;
     Len: Integer;
@@ -1480,7 +1692,7 @@ begin
 	setLength( UGBindings, Len + 1 );
 	UGBindings[ Len ] := binding;
 
-	addSQLStatement( 'INSERT INTO groups_users ( group_id, user_id ) VALUES ( ' + IntToStr( group.id ) + ', ' + IntToStr( user.id ) + ' )' );
+	addSQLStatement( 'INSERT INTO group_users ( group_id, user_id ) VALUES ( ' + IntToStr( group.id ) + ', ' + IntToStr( user.id ) + ' )' );
 
 end;
 
@@ -1618,4 +1830,17 @@ begin
 			result[ RLen ] := UGBindings[ i ];
 		end;
 	end;
+end;
+
+function TPam2DB.getHasErrors(): Boolean;
+begin
+	if ( Length( errors ) > 0 )
+	then result := TRUE
+	else result := FALSE;
+end;
+
+procedure TPam2DB.setHasErrors( on: Boolean );
+begin
+	if ( on = FALSE ) and ( Length( errors ) > 0 )
+	then setLength( errors, 0 );
 end;

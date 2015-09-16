@@ -17,7 +17,7 @@ function str_starts_with( S: AnsiString; What: AnsiString ): Boolean;
 function str_ends_with( S: AnsiString; What: AnsiString ): Boolean;
 function str_is_float( S: AnsiString ): Boolean;
 function str_is_int( S: AnsiString ): Boolean;
-function str_match_chars( S: AnsiString; chars: String ): Boolean;
+function str_match_chars( S: AnsiString; chars: String): Boolean;
 function str_join( arr: TStrArray; const delimiter: String = '' ): AnsiString;
 
 {

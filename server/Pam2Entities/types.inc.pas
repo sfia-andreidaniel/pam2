@@ -71,3 +71,13 @@ type TPam2UGBinding = record
 end;
 
 type TPam2UGBinding_List = Array of TPam2UGBinding;
+
+{ HOST + SERVICE + USER permission }
+type TPam2HSUPermission = record
+	host: TPam2Host;
+	service: TPam2Service;
+	user: TPam2User;
+	allow: boolean;
+end;
+
+type TPam2HSUPermission_List = Array of TPam2HSUPermission;

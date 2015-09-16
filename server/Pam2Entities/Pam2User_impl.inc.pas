@@ -33,8 +33,64 @@ end;
 
 function TPam2User.Save(): boolean;
 begin
-	result := true;
-	needSave := FALSE;
+
+	if ( needSave = FALSE ) then
+	begin
+		result := TRUE;
+	end else
+	begin
+
+		if not deleted then
+		begin
+
+			if ( _user_id = 0 ) then
+			begin
+				// DO INSERT
+				
+				db.addSQLStatement( 
+					'INSERT INTO `user` ( `login_name`, `real_name`, `email`, `user_enabled`, `is_admin`, `password` ) ' +
+					'VALUES ( ' + 
+						json_encode( _login_name ) + ', ' +
+						json_encode( _real_name ) + ', ' +
+						json_encode( _email ) + ', ' +
+						IntToStr( Integer( _enabled ) ) + ', ' +
+						IntToStr( Integer( _admin ) ) + ', ' +
+						json_encode( _password ) + 
+					')'
+				);
+
+			end else
+			begin
+				// DO UPDATE
+				db.addSQLStatement(
+					'UPDATE `user` SET '    +
+						'`login_name` = '   + json_encode( _login_name )      + ', ' +
+						'`real_name` = '    + json_encode( _real_name )       + ', ' +
+						'`email` = '        + json_encode( _email )           + ', ' +
+						'`user_enabled` = ' + IntToStr( Integer( _enabled ) ) + ', ' +
+						'`is_admin` = '     + IntToStr( Integer( _admin ) )   + ', ' +
+						'`password` = '     + json_encode( _password )        + ' '  +
+					'WHERE user_id = ' + IntToStr( _user_id ) + ' ' +
+					'LIMIT 1'
+				);
+
+			end;
+
+		end else
+		begin
+
+			if ( _user_id > 0 ) then
+			begin
+				// DO DELETION
+				db.addSQLStatement( 'DELETE FROM `user` WHERE `user_id` = ' + IntToStr( _user_id ) + ' LIMIT 1' );
+			end;
+
+		end;
+
+		result := TRUE;
+		needSave := FALSE;
+	end;
+
 end;
 
 destructor TPam2User.Free();
@@ -149,11 +205,9 @@ begin
 		db.addError( 'Another user allready exists with login name "' + lName + '"' );
 	end else
 	begin
-
-		saved := FALSE;
+		needSave := TRUE;
 		db.addExplanation( 'Modify login name of user "' + _login_name + '" to "' + lName + '"' );
 		_login_name := lName;
-
 	end;
 end;
 
@@ -165,14 +219,14 @@ begin
 
 	if ( rName = '' ) then
 	begin
-		db.addError( '"' + value + '" real name is invalid!' );
+		db.addError( '"' + value + '" real name is invalid or contains invalid characters!' );
 	end else
 	if rName = _real_name then
 	begin
 		// return
 	end else
 	begin
-		saved := FALSE;
+		needSave := TRUE;
 		db.addExplanation( 'Modify real_name for user "' + _login_name + '" from "' + _real_name + '" to "' + rName + '"' );
 		_real_name := rName;
 	end;
@@ -194,7 +248,7 @@ begin
 		// return
 	end else
 	begin
-		saved := FALSE;
+		needSave := TRUE;
 		db.addExplanation( 'Modify email for user "' + _login_name + '" from "' + _email + '" to "' + rMail + '"' );
 		_email := rMail;
 	end;
@@ -213,7 +267,7 @@ begin
 
 		_enabled := value;
 		
-		saved := FALSE;
+		needSave := TRUE;
 
 	end;
 
@@ -232,7 +286,7 @@ begin
 
 		_admin := value;
 
-		saved := FALSE;
+		needSave := TRUE;
 
 	end;
 
@@ -255,9 +309,10 @@ begin
 		pVal := db.encryptPassword( value );
 		
 		db.addExplanation( 'Update the PAM2 password for user "' + _login_name + '"' );
+
 		_password := pVal;
 
-		saved := FALSE;
+		needSave := TRUE;
 
 	end;
 
@@ -290,6 +345,7 @@ begin
 		deleted := TRUE;
 		needSave := TRUE;
 		db.unbindUG( self );
+		db.unbindHSU( self );
 	end;
 
 end;

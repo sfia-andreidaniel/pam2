@@ -19,3 +19,7 @@ begin
 	raise Exception.Create('Assert: normalize(" test.dot@foo.bar ", ENTITY_EMAIL ) returns empty' );
 end;
 
+if ( normalize( 'John Doe', ENTITY_REAL_NAME ) = '' ) then
+begin
+	raise Exception.Create('Assert: normalize("John Doe", ENTITY_REAL_NAME ) returns empty' );
+end;
