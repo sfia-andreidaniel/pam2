@@ -109,7 +109,8 @@ begin
 							arg := '';
 							argLen := 0;
 						end;
-					end;
+					end
+
 				end;
 
 			end
@@ -150,6 +151,7 @@ begin
 	setLength( args, 0 );
 end;
 
+{$ifndef client}
 function TQueryParser.readEntities( 
 	
 	entityType: Integer; 
@@ -237,6 +239,8 @@ begin
 	array_unique( result );
 
 end;
+{$endif}
+
 
 // 1-based index
 function TQueryParser.getCurrentArgumentIndex(): Integer;

@@ -22,7 +22,9 @@ type TQueryParser = Class
 		function nextArg(): AnsiString;
 		function toString(): AnsiString;
 
+		{$ifndef client}
 		function readEntities( entityType: Integer; allowWildcard: Boolean; pam2Database: TPam2DB; const stopWords: TStrArray; var isWildCard: boolean ): TStrArray;
+		{$endif}
 
 		procedure reset();
 

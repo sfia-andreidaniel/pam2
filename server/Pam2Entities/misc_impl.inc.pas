@@ -48,8 +48,6 @@ end;
 function is_realName( value: AnsiString ): Boolean;
 begin
 
-	console.warn( 'is_realname: "' + value + '" "' + FMT_REALNAME + '"', MAXLEN_REALNAME );
-
 	if ( length( value ) = 0 ) or ( length(value) > MAXLEN_REALNAME ) or ( not str_match_chars( value, FMT_REALNAME ) )
 		then result := FALSE
 		else result := TRUE;
@@ -108,8 +106,6 @@ begin
 			end;
 
 		end;
-
-		console.warn( 'aici' );
 
 		if ( minMonkeyPos < 1 ) or ( numMonkeys <> 1 ) or ( minDot = minMonkeyPos - 1 ) or
 		   ( maxDot = len - 1 ) 

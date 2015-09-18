@@ -1175,7 +1175,9 @@ begin
 				try
 
 					if ( set_flag = FALSE ) then
+					
 						db.createUser( uName )
+					
 					else begin
 						
 						if ( set_email = FALSE ) then val_email := '';
@@ -1184,7 +1186,10 @@ begin
 						if ( set_admin = FALSE ) then val_admin := FALSE;
 						if ( set_password = FALSE ) then val_password := '';
 
-						db.createUser( uName, val_real_name, val_email, val_enabled, val_admin, val_password );
+						if ( db.createUser( uName, val_real_name, val_email, val_enabled, val_admin, val_password ) = NIL ) then
+						begin
+							raise Exception.Create('Failed to create user: ' + str_join( db.errorMessages, ', ' ) );
+						end;
 
 					end;
 

@@ -899,6 +899,8 @@ var lName: AnsiString;
 
 begin
 	
+	console.error( 'Create user: "' + loginName + '", "' + realName + '"' );
+
 	result := NIL;
 	error := FALSE;
 	
@@ -948,7 +950,7 @@ begin
 
 				if length( lPassword ) < MINLEN_PAM2_PASSWORD then
 				begin
-					addError('Password is too short!');
+					addError('Password is too short (' + IntToStr( length( lPassword ) ) + ' < ' + IntToStr( MINLEN_PAM2_PASSWORD ) + ')' );
 					error := TRUE;
 				end else
 				begin
@@ -1687,7 +1689,7 @@ begin
 	binding.user := user;
 	binding.group := group;
 
-	console.notice( 'bindUG( ', user.loginName, ' => ', group.groupName, ' )' );
+	//console.notice( 'bindUG( ', user.loginName, ' => ', group.groupName, ' )' );
 
 	setLength( UGBindings, Len + 1 );
 	UGBindings[ Len ] := binding;

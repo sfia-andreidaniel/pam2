@@ -23,7 +23,7 @@ const
     SIZE_BYTES_T  = 1000 * SIZE_BYTES_G;
     SIZE_BYTES_P  = 1000 * SIZE_BYTES_T;
 
-
+var ENV_PATH: AnsiString;
 
 { Returns the application directory }
 function GetApplicationDir(): AnsiString;
@@ -36,6 +36,12 @@ function  Int64ToSize( S: Int64 ): AnsiString;
 
 { Returns the User Directory }
 function GetUserHomeDir(): AnsiString;
+
+{ Search for a process in current directory and ENV path, and returns it's path }
+function searchExecutable( exeNameWithoutExtension: AnsiString ): AnsiString;
+
+{ dumps a message on stderr and exits with code x }
+procedure die( message: AnsiString; const errorCode: Byte = 1 );
 
 implementation
 
@@ -232,5 +238,52 @@ begin
     end;
     
 end;
+
+function searchExecutable( exeNameWithoutExtension: AnsiString ): AnsiString;
+var search_extensions: TStrArray;
+    i: integer;
+    len: integer;
+begin
+
+    {$ifdef win32}
+
+        setLength( search_extensions, 3 );
+        search_extensions[0] := '';
+        search_extensions[1] := '.exe';
+        search_extensions[2] := '.com';
+    {$else}
+        setLength( search_extensions, 1 );
+        search_extensions[0] := '';
+    {$endif}
+
+    result := '';
+
+    len := Length( search_extensions );
+    
+    for i := 0 to len - 1 do
+    begin
+        result := ExeSearch( exeNameWithoutExtension + search_extensions[i], ENV_PATH );
+        
+        if ( not fileExists( result ) ) then
+            result := '';
+
+        if ( result <> '' ) then
+            exit;
+    end;
+
+    result := '';
+
+    
+end;
+
+procedure die( message: AnsiString; const errorCode: Byte = 1 );
+begin
+    writeln( stdErr, message );
+    halt( errorCode );
+end;
+
+initialization
+
+    ENV_PATH := getEnvironmentVariable( 'PATH' );
 
 end.
