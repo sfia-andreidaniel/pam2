@@ -13,3 +13,4 @@ pam2d.o
 install/*.msi
 *.txt~
 pam2d.log
+build/*
