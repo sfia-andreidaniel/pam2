@@ -9,7 +9,10 @@ server/*.ppu
 *.ppu
 pam2d
 pam2d.exe
+pam2.exe
+pam2
 pam2d.o
+pam2.o
 install/*.msi
 *.txt~
 pam2d.log
