@@ -46,17 +46,17 @@
 
             Command.Exec();
 
-            Console.notice( 'Command execution completed' );
+            //Console.notice( 'Command execution completed' );
 
             if Command.error = TRUE then
             begin
 
-                Console.warn( 'SEND ERROR: ', '{ "id": ' + IntToStr( CmdID ) + ', "ok": false, "error": ' + json_encode( Command.reason ) + ' }' );
+                // Console.warn( 'SEND ERROR: ', '{ "id": ' + IntToStr( CmdID ) + ', "ok": false, "error": ' + json_encode( Command.reason ) + ' }' );
                 _Session.SendText( '{ "id": ' + IntToStr( CmdID ) + ', "ok": false, "error": ' + json_encode( Command.reason ) + ' }' );
 
             end else
             begin
-                Console.warn( 'SEND SUCCESS: ', '{ "id": ' + IntToStr( CmdID ) + ', "ok": true, "data": ' + Command.result + ' }' );
+                // Console.warn( 'SEND SUCCESS: ', '{ "id": ' + IntToStr( CmdID ) + ', "ok": true, "data": ' + Command.result + ' }' );
                 _Session.SendText( '{ "id": ' + IntToStr( CmdID ) + ', "ok": true, "data": ' + Command.result + ' }' );
             end;
 

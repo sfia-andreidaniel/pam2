@@ -1,0 +1,22 @@
+ 
+The GROUP command is a statement that is used to manage groups of users on a
+PAM2 server.
+
+Syntax:
+
+# add or remove a group
+GROUP (ADD|REMOVE) $GROUPNAME
+
+# add or remove user membership for a group
+GROUP (ADD|REMOVE) $GROUPNAME
+      (FOR|TO) (USER|USERS) {USER_LIST}
+
+# allow or deny, or undefine a group for using one or more services on one or
+# more hosts
+GROUP (ADD|REMOVE|UNSET) $GROUPNAME 
+      (FROM|TO) (SERVICE|SERVICES) {SERVICE_LIST}
+      ON {HOST_LIST}
+
+# enable or disable one or more groups
+GROUP (ENABLE|DISABLE) {GROUP_LIST}
+

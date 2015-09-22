@@ -39,6 +39,10 @@ begin
 		if arg = 'select' then
 		begin
 			result := cmd_select( query );
+		end
+		else if arg = 'help' then
+		begin
+			result := cmd_help( query );
 		end else
 			raise Exception.Create( 'Invalid command: "' + arg + '" ( argument index: 0 )' );
 
@@ -1792,6 +1796,77 @@ begin
 			end;
 
 		end;
+
+	end;
+
+end;
+
+function TPam2ExecutionContext.cmd_help( query: TQueryParser ): AnsiString;
+var arg: AnsiString;
+	helpFiles: TStrArray;
+	len: Integer;
+	helpPath: AnsiString;
+
+	info: TSearchRec;
+begin
+
+	arg := trim( lowerCase( query.nextArg ) );
+
+	if ( arg = '' ) or ( arg = 'server' ) then
+	begin
+
+		arg := trim( lowerCase( query.nextArg ) );
+
+		if ( arg = '' ) then
+		begin
+
+			result := '{"explain": "Available server help", "data": ';
+
+			setLength( helpFiles, 0 );
+
+			if ( FindFirst( getApplicationDir() + PATH_SEPARATOR + 'help' + PATH_SEPARATOR + '*.txt', faAnyFile, Info ) = 0 ) then
+			begin
+
+				repeat
+
+					setLength( helpFiles, Length( helpFiles ) + 1 );
+					helpFiles[ Length(helpFiles) - 1 ] := copy( Info.Name, 1, Length( Info.Name ) - 4 );
+
+				until FindNext( info ) <> 0;
+
+				FindClose( info );
+
+			end;
+
+
+			result := result + json_encode( #10#13 + 'Type "help server <command>" to display additional info:'#10#13#10#13 + str_join( helpFiles, #10#13 ) + #10#13 ) + '}';
+
+		end else
+		begin
+
+			if not str_match_chars( arg, 'abcdefghijklmnopqrstuvwxyz0123456789' ) then
+			begin
+				raise Exception.Create('Invalid command name "' + arg + '"' );
+			end;
+
+			helpPath := getApplicationDir() + PATH_SEPARATOR + 'help' + PATH_SEPARATOR + arg + '.txt';
+
+			if ( not fileExists( helpPath ) ) then
+				raise Exception.Create('Help for command "' + arg + '" was not found!' );
+
+			result := '{"explain": "HELP for command ' + arg + '", "data": ';
+
+			result := result + json_encode( readTextFileToString( helpPath ) );
+
+			result := result + '}';
+
+		end;
+
+
+	end else
+	begin
+
+		raise Exception.Create('Unexpected token: ' + arg );
 
 	end;
 

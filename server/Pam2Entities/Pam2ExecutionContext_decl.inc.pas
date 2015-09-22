@@ -17,6 +17,7 @@ type TPam2ExecutionContext = class
 			function cmd_service( query: TQueryParser ): AnsiString;
 			function cmd_group  ( query: TQueryParser ): AnsiString;
 			function cmd_select ( query: TQueryParser ): AnsiString;
+			function cmd_help   ( query: TQueryParser ): AnsiString;
 
 		public 
 			constructor Create( _db: TPam2DB; isAdmin: Boolean; lockedUserId: Integer );

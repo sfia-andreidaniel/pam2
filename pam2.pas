@@ -227,6 +227,14 @@ begin
 	end else
 	begin
 
+		writeln;
+		writeln( 'PAM2 client, version 0.1 ' + {$ifdef win32}'for Windows'{$else}'for Linux / Unix'{$endif} );
+		writeln( 'https://github.com/sfia-andreidaniel/pam2' );
+		writeln( '' );
+		writeln( '* type "help" for a list of supported commands' );
+		writeln( '* hit ESC to quit' );
+		writeln;
+
 		if ( u_pwd = false ) then
 		begin
 

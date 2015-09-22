@@ -266,11 +266,21 @@ begin
 	end else
 	if ( data.typeof = 'string' ) then
 	begin
+
+		if ( indent > 0 ) then
+		begin
+
 		write('''');
 		textcolor(lightblue);
 		write( data.getAsString('') );
 		textcolor(lightgray);
 		write('''');
+
+		end else
+		begin
+		write( data.getAsString('') );
+		end;
+
 	end else
 	if ( data.typeof = 'boolean' ) then
 	begin
@@ -514,15 +524,18 @@ begin
 	writeln;
 
 	writeln('Available client commands list:' );
-	textcolor(lightgreen); write('clear    '); textcolor( lightgray ); writeln('Clears the screen');
-	textcolor(lightgreen); write('help     '); textcolor( lightgray ); writeln('Shows this help');
-	textcolor(lightgreen); write('host     '); textcolor( lightgray ); writeln('Change current host.');
-	textcolor(lightgreen); write('login    '); textcolor( lightgray ); writeln('Change current user and password' );
-	textcolor(lightgreen); write('quit     '); textcolor( lightgray ); writeln('Exits this program');
+	textcolor(lightgreen); write('clear, cls    '); textcolor( lightgray ); writeln('Clears the screen');
+	textcolor(lightgreen); write('help          '); textcolor( lightgray ); writeln('Shows this help');
+	textcolor(lightgreen); write('help server   '); textcolor( lightgray ); writeln('Shows help about server query language (must be logged in)');
+	textcolor(lightgreen); write('host, connect '); textcolor( lightgray ); writeln('Connect to a new PAM2 server');
+	textcolor(lightgreen); write('login         '); textcolor( lightgray ); writeln('Change current user and password' );
+	textcolor(lightgreen); write('quit          '); textcolor( lightgray ); writeln('Exits this program');
 	writeln;
-	writeln('Available server commands:' );
-	writeln('  Any other command that is written, is sent to the server for execution.');
-	writeln('  Please consult file COMMANDS for more information');
+	writeln('Available keys:' );
+	textcolor(lightgreen); write('UP, DOWN      '); textcolor( lightgray ); writeln('Navigate in history of current session' );
+	textcolor(lightgreen); write('BKSPACE, DEL  '); textcolor( lightgray ); writeln('Delete char at cursor' );
+	textcolor(lightgreen); write('ENTER         '); textcolor( lightgray ); writeln('Execute command' );
+	textcolor(lightgreen); write('ESC           '); textcolor( lightgray ); writeln('Quit' );
 
-	writeln();
+	writeln;
 end;

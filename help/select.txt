@@ -1,0 +1,26 @@
+ 
+The SELECT command is a statement that is used to obtain information about
+objects on a PAM2 Server.
+
+Non administrative privileges syntax
+
+# Retrieves information about current user profile
+SELECT MY (profile|user)
+
+# Retrieves information about current associated groups of the logged in user
+SELECT MY groups
+
+Administrative privileges syntax:
+
+SELECT [ENABLED|DISABLED] USER {USER_NAME}
+SELECT [ENABLED|DISABLED] USERS {USER_LIST}
+
+SELECT [ENABLED|DISABLED] GROUP {GROUP_NAME}
+SELECT [ENABLED|DISABLED] GROUPS {GROUPS_LIST}
+
+SELECT [DEFAULT] HOST {HOST_NAME}
+SELECT [DEFAULT] HOSTS {HOSTS_LIST}
+
+SELECT SERVICE {SERVICE_NAME}
+SELECT SERVICES {SERVICES_LIST}
+

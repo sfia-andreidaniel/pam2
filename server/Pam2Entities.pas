@@ -20,6 +20,12 @@ interface uses
 	{ JSON utilities unit }
 	JSON,
 
+	{ APPLICATION UTILITIES }
+	AppUtils,
+
+	{ File helpers }
+	FileUtils,
+
 	{database support}
     sqldb, pqconnection, { IBConnnection, ODBCConn, }
     mysql50conn, mysql55conn   

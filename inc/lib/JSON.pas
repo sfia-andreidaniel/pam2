@@ -457,7 +457,12 @@ implementation
                     #0 : result := result + '';
                     '"': result := result + '\"'
                     else
-                        result := result + data[i];
+                    begin
+                        if ( ord(data[i]) >= 32 ) then
+                        begin
+                            result := result + data[i];
+                        end;
+                    end;
                 end;
                 
             end;

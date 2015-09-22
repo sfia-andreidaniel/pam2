@@ -1,0 +1,30 @@
+ 
+The USER command is a statement that is used for managing users on a PAM2
+server.
+
+# add a user
+USER ADD $USERNAME [
+     SET [email $EMAIL_ADDRESS]
+         [real_name $REAL_NAME]
+         [enabled (yes|no)]
+         [admin (yes|no)]
+         [password $PASSWORD]
+]
+
+# delete a user
+USER REMOVE $USERNAME
+
+# enable or disable a user
+USER (ENABLE|DISABLE) $USERNAME
+
+# add or remove a user from a group or from a groups list
+USER (ADD|REMOVE) $USERNAME
+     (FOR|TO) (GROUP|GROUPS) {GROUPS_LIST}
+
+# allow, deny or undefine a user for using one or more services on one or more
+# hosts
+
+USER (ADD|REMOVE|UNSET) $USERNAME
+     (FROM|TO) (SERVICE|SERVICES) {SERVICE_LIST}
+     ON {HOST_LIST}
+
