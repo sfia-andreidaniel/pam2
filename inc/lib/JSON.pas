@@ -1,6 +1,6 @@
 {$mode objfpc}
 unit JSON;
-interface uses classes, sysutils, fpjson, jsonparser;
+interface uses classes, sysutils, fpjson, jsonparser, StringsLib;
 
 type 
     TJSON = Class
@@ -8,6 +8,9 @@ type
         private 
             _data: TJSONData;
             _freeData: Boolean;
+
+            function getLength(): Longint;
+            function getKeys(): TStrArray;
         
         public
         
@@ -34,11 +37,15 @@ type
             function get( propertyName: AnsiString; Default: Double ): Double;
             function get( propertyName: AnsiString; Default: AnsiString): AnsiString;
             function get( propertyName: AnsiString; Default: Boolean): Boolean;
+            function get( propertyName: AnsiString ): TStrArray;
 
             function get( index: LongInt; Default: Int64 ): Int64;
             function get( index: LongInt; Default: Double ): Double;
             function get( index: LongInt; Default: AnsiString): AnsiString;
             function get( index: LongInt; Default: Boolean): Boolean;
+
+            property count: LongInt read getLength;
+            property keys: TStrArray read getKeys;
             
             Destructor Free();
 
@@ -49,6 +56,7 @@ type
     function json_encode( data: Boolean ): AnsiString;
     function json_encode( data: Integer ): AnsiString;
     function json_encode( data: Double ): AnsiString;
+    function json_encode( data: TStrArray ): AnsiString;
 
 implementation
 
@@ -186,6 +194,18 @@ implementation
             
         end;
 
+    end;
+
+    function TJSON.get( propertyName: AnsiString ): TStrArray;
+    var i: Integer;
+        Len: Integer;
+    begin
+        Len := count;
+        setLength( result, Len );
+        for i := 0 to Len do
+        begin
+            result[ i - 1 ] := get( i, '' );
+        end;
     end;
 
     function TJSON.hasOwnProperty( index: LongInt ): Boolean;
@@ -350,6 +370,25 @@ implementation
         end;
     end;
 
+    function TJSON.getLength(): Longint;
+    begin
+        result := _data.count;
+    end;
+
+    function TJSON.getKeys(): TStrArray;
+    var len: Integer;
+        i: Integer;
+    begin
+        len := _data.Count;
+        setLength( result, len );
+        
+        for i := 0 to len - 1 do
+        begin
+            result[i] := TJSONObject(_data).Names[ i ];
+        end;
+
+    end;
+
     Constructor TJSON.Create( data: TJSONData; const FreeData: Boolean = true );
     begin
         _Data := Data;
@@ -447,4 +486,22 @@ implementation
         result := FloatToStrF( data, ffGeneral, 15, 0 );
     end;
     
+    function json_encode( data: TStrArray ): AnsiString;
+    var i: Integer;
+        Len: Integer;
+    begin
+        result := '[';
+        Len := Length( data );
+        
+        for i := 0 to Len - 1 do
+        begin
+            result := result + json_encode( data[i] );
+            
+            if ( i < Len - 1 ) then
+                result := result + ',';
+        
+        end;
+        result := result + ']';
+    end;
+
 end.

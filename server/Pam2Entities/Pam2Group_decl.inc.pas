@@ -17,12 +17,14 @@ type TPam2Group = class
 
 			procedure setGroupName( value: AnsiString );
 			procedure setEnabled  ( value: Boolean );
+			function  _toJSON(): AnsiString;
 
 		public
 
 			property    id        : integer    read _group_id;
 			property    groupName : AnsiString read _group_name write setGroupName;
 			property    enabled   : Boolean    read _enabled    write setEnabled;
+			property    toJSON    : AnsiString read _toJSON;
 
 			constructor Create( _db: TPam2DB; gid: integer; group_name: AnsiString; _is_enabled: Boolean; isSaved: boolean );
 			constructor Create( _db: TPam2DB; gid: Integer );

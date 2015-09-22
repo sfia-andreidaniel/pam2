@@ -1,5 +1,5 @@
 {$define client}
-uses crt, AppUtils, StringsLib, sysutils, Classes, Process, JSON;
+uses crt, AppUtils, StringsLib, sysutils, Classes, Process, JSON, strutils;
 
 var node_path : AnsiString;
     query : TStrArray;

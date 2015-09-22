@@ -230,6 +230,107 @@ begin
 	textcolor(lightgray);
 end;
 
+procedure print_json( data: TJSON; const indent: Integer = 0; const indentPrimitives: Boolean = true );
+var i: Integer;
+    len: Integer;
+    tabs: AnsiString;
+    keys: TStrArray;
+    maxKeyLen: Integer;
+    l2: Integer;
+begin
+
+	tabs := '';
+	
+	for i := 1 to indent do tabs := tabs + ' ';
+
+	write( tabs );
+
+	if ( data = NIL ) then
+	begin
+		write( 'null' );
+	end else
+	if ( data.typeof = 'number' ) then
+	begin
+		write( data.getAsInt( 0 ) );
+	end else
+	if ( data.typeof = 'string' ) then
+	begin
+		write( data.getAsString('') );
+	end else
+	if ( data.typeof = 'boolean' ) then
+	begin
+		if ( data.getAsBoolean(FALSE) = TRUE ) then
+			write('true')
+		else
+			write('false');
+	end else
+	if ( data.typeof = 'null' ) then
+	begin
+		write('null');
+	end else
+	if ( data.typeof = 'array' ) then
+	begin
+
+		writeln('[');
+
+		len := data.count;
+
+		for i := 0 to len - 1 do
+		begin
+
+			print_json( data.get( i ), indent + 4 );
+			
+			if ( i < len - 1 ) then
+				writeln( ',' )
+			else
+				writeln;
+
+		end;
+
+		write(tabs, ']' );
+
+	end else
+	if ( data.typeof = 'object' ) then
+	begin
+
+		writeln( '{' );
+
+		keys := data.keys;
+
+		Len := length( keys );
+
+		maxKeyLen := 0;
+
+		for i := 0 to Len - 1 do
+		begin
+
+			L2 := Length( keys[i] );
+
+			if ( L2 > maxKeyLen ) then
+				maxKeyLen := L2;
+
+		end;
+
+		for i := 0 to Len - 1 do
+		begin
+			write( tabs, '  "' );
+			write( padRight( keys[i] + '" : ', maxKeyLen + 4 ) );
+			
+			print_json( data.get( keys[i] ), indent + maxKeyLen + 4, FALSE );
+			
+			if ( i < len - 1 ) then
+				writeln(',')
+			else
+				writeln;
+
+		end;
+
+		write( tabs, '}' );
+
+	end;
+
+end;
+
 procedure print_stdout( outs: AnsiString );
 var data: TJSON;
 begin
@@ -251,6 +352,12 @@ begin
 				begin
 
 					writeln(data.get('data').get('explain',''));
+
+					if ( data.typeof('data') <> 'undefined' ) then
+					begin
+						print_json( data.get('data') );
+						writeln;
+					end;
 
 				end else
 				begin

@@ -34,15 +34,15 @@ begin
 	user := getUserByName( userName );
 
 	if user = NIL then
-		raise Exception.Create( 'User "' + userName + '" not found!' );
+		raise Exception.Create( 'Access denied: Failed to authenticate user "' + userName + '" on server!' );
 
 	if user.enabled = FALSE then
-		raise Exception.Create( 'Account "' + userName + '" is disabled, and cannot execute any command on server!' );
+		raise Exception.Create( 'Access denied: Account "' + userName + '" is disabled, and cannot execute any command on server!' );
 
 	mdPwd := encryptPassword( password );
 
 	if mdPwd <> user.password then
-		raise Exception.Create( 'Bad password' );
+		raise Exception.Create( 'Access denied: Failed to authenticate user "' + userName + '" on server!' );
 
 	result := TPam2ExecutionContext.Create( self, user.admin, user.id );
 

@@ -17,12 +17,14 @@ type TPam2Host = class
 
 			procedure   setHostName( value: AnsiString );
 			procedure   setDefaultHost( value: Boolean );
+			function    _toJSON(): AnsiString;
 
 		public
 
 			property    id       : Integer read _host_id;
 			property    hostName : AnsiString read _host_name write setHostName;
 			property    default  : Boolean read _default_host write setDefaultHost;
+			property    toJSON   : AnsiString read _toJSON;
 
 			constructor Create( _db: TPam2DB; hid: integer; hname: AnsiString; defaultHost: boolean; isSaved: boolean );
 			constructor Create( _db: TPam2DB; hid: integer );

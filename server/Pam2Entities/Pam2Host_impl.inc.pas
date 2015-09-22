@@ -215,3 +215,12 @@ begin
 
 	end;
 end;
+
+function TPam2Host._toJSON(): AnsiString;
+begin
+	result := '{"type":"host",';
+	result := result + '"id":' + json_encode(_host_id) + ',';
+	result := result + '"name":' + json_encode(_host_name) + ',';
+	result := result + '"default":' + json_encode(_default_host);
+	result := result + '}';
+end;

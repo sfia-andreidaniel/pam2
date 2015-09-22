@@ -243,3 +243,12 @@ begin
 
 	end;
 end;
+
+function TPam2Group._toJSON(): AnsiString;
+begin
+	result := '{"type":"group",';
+	result := result + '"name":' + json_encode(_group_name) + ',';
+	result := result + '"enabled":' + json_encode(_enabled) + ',';
+	result := result + '"id":' + json_encode(_group_id);
+	result := result + '}';
+end;

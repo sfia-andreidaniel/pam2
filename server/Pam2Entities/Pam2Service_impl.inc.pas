@@ -173,3 +173,11 @@ begin
 
 	end;
 end;
+
+function TPam2Service._toJSON(): AnsiString;
+begin
+	result := '{"type":"service",';
+	result := result + '"id":' + json_encode(_service_id) + ',';
+	result := result + '"name":' + json_encode(_service_name);
+	result := result + '}';
+end;

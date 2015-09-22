@@ -15,11 +15,13 @@ type TPam2Service = class
 
 			procedure SetServiceName( value: AnsiString );
 			function  Save(): Boolean;
+			function  _toJSON(): AnsiString;
 
 		public
 
 			property    id           : Integer    read _service_id;
 			property    serviceName  : AnsiString read _service_name    write   setServiceName;
+			property    toJSON       : AnsiString read _toJSON;
 
 			constructor Create( _db: TPam2DB; sid: integer; sname: AnsiString; isSaved: boolean );
 			constructor Create( _db: TPam2DB; sid: integer );

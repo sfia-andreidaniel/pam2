@@ -1349,6 +1349,57 @@ end;
 
 
 function TPam2ExecutionContext.cmd_select ( query: TQueryParser ): AnsiString;
+var arg: AnsiString;
+    user: TPam2User;
 begin
-	raise Exception.Create( 'select command is not implemented' );
+	
+	arg := query.nextArg();
+
+	if ( arg = '' ) then
+	begin
+		raise Exception.Create('Unexpected end of query!');
+	end else
+	if ( arg = 'my' ) then
+	begin
+
+		arg := LowerCase( query.nextArg() );
+
+		if ( arg = 'user' ) then
+		begin
+			user := db.getUserById( lockedToUserId );
+			
+			if ( user = NIL ) then
+			begin
+				raise Exception.Create('Could not find you on server!');
+			end;
+
+			result := '{"explain": "Who you are", "data":' + user.toJSON + '}';
+
+		end else
+		if ( arg = 'groups' ) then
+		begin
+
+			user := db.getUserById( lockedToUserId );
+
+			if ( user = NIL ) then
+			begin
+				raise Exception.Create('Could not find you on server!');
+			end;
+
+			result := '{"explain": "Your groups", "data": ' + json_encode( user.groupNames ) + '}';
+
+		end else
+		if ( arg = '' ) then
+		begin
+			raise Exception.Create('Unexpected end of query!' );
+		end else
+			raise Exception.Create('Unexpected token "' + arg + '"' );
+
+	end else
+	begin
+
+		raise Exception.Create('Not implemented');
+
+	end;
+
 end;

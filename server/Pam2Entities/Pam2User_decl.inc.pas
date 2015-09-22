@@ -27,6 +27,8 @@ type TPam2User = class
 			procedure setAdmin    ( value: Boolean );
 			procedure setPassword ( value: AnsiString );
 
+			function _getGroupNames(): TStrArray;
+			function _toJSON(): AnsiString;
 
 		public
 
@@ -37,6 +39,8 @@ type TPam2User = class
 			property enabled    : boolean    read _enabled    write setEnabled;
 			property admin      : boolean    read _admin      write setAdmin;
 			property password   : AnsiString read _password   write setPassword;
+			property toJSON     : AnsiString read _toJSON;
+			property groupNames : TStrArray  read _getGroupNames;
 
 			constructor Create( _db: TPam2DB; uid: integer; login_name: AnsiString; real_name: AnsiString; user_email: AnsiString; user_enabled: boolean; is_admin: boolean; pam2_password: AnsiString; isSaved: boolean );
 			constructor Create( _db: TPam2DB; uid: integer );
