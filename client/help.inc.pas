@@ -16,7 +16,7 @@ end;
 
 function is_quit( cmd: TStrArray ): boolean;
 begin
-	if ( length(cmd) = 1 ) and ( lowercase( cmd[0] ) = 'quit' ) then
+	if ( length(cmd) = 1 ) and ( (lowercase( cmd[0] ) = 'quit') or (lowercase( cmd[0] ) = 'exit') ) then
 	begin
 		result := true;
 	end else
@@ -41,7 +41,7 @@ end;
 function is_clear( cmd: TStrArray ): boolean;
 begin
 
-	if ( length( cmd ) = 1 ) and ( lowercase( cmd[0] ) = 'clear' ) then
+	if ( length( cmd ) = 1 ) and ( (lowercase( cmd[0] ) = 'clear') or (lowercase( cmd[0] ) = 'cls') ) then
 	begin
 		result := true;
 	end else
@@ -55,7 +55,7 @@ end;
 function is_host( cmd: TStrArray ): boolean;
 begin
 
-	if ( length( cmd ) >= 1 ) and ( lowercase(cmd[0]) = 'host' ) then
+	if ( length( cmd ) >= 1 ) and ( (lowercase(cmd[0]) = 'host') or (lowercase(cmd[0]) = 'connect') ) then
 	begin
 
 		result := true;

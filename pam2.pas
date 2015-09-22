@@ -246,6 +246,8 @@ begin
 
 		until is_quit( query );
 
+		writeln;
+
 	end;
 
 

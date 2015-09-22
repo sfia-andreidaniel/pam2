@@ -247,8 +247,23 @@ end;
 function TPam2Group._toJSON(): AnsiString;
 begin
 	result := '{"type":"group",';
+	result := result + '"id":' + json_encode(_group_id) + ',';
 	result := result + '"name":' + json_encode(_group_name) + ',';
 	result := result + '"enabled":' + json_encode(_enabled) + ',';
-	result := result + '"id":' + json_encode(_group_id);
+	result := result + '"users":' + json_encode( _getUserNames() );
 	result := result + '}';
+end;
+
+function TPam2Group._getUserNames(): TStrArray;
+var i: Integer;
+    len: Integer;
+    users: TPam2UGBinding_List;
+begin
+	users := db.getUGBindings(self);
+	len := length(users);
+	setLength( result, Len );
+
+	for i := 0 to len - 1 do
+		result[ i ] := users[i].user.loginName;
+
 end;

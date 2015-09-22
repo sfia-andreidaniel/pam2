@@ -230,7 +230,7 @@ begin
 	textcolor(lightgray);
 end;
 
-procedure print_json( data: TJSON; const indent: Integer = 0; const indentPrimitives: Boolean = true );
+procedure print_json( data: TJSON; const indent: Integer = 0; const objectKey: AnsiString = '' );
 var i: Integer;
     len: Integer;
     tabs: AnsiString;
@@ -245,28 +245,47 @@ begin
 
 	write( tabs );
 
+	if ( objectKey <> '' ) then
+	begin
+		textcolor(magenta);
+		write( objectKey );
+		textcolor(lightgray);
+	end;
+
 	if ( data = NIL ) then
 	begin
+		textcolor(red);
 		write( 'null' );
+		textcolor(lightgray);
 	end else
 	if ( data.typeof = 'number' ) then
 	begin
+		textcolor(lightgreen);
 		write( data.getAsInt( 0 ) );
+		textcolor(lightgray);
 	end else
 	if ( data.typeof = 'string' ) then
 	begin
+		write('''');
+		textcolor(lightblue);
 		write( data.getAsString('') );
+		textcolor(lightgray);
+		write('''');
 	end else
 	if ( data.typeof = 'boolean' ) then
 	begin
+		textcolor(lightmagenta);
 		if ( data.getAsBoolean(FALSE) = TRUE ) then
 			write('true')
 		else
 			write('false');
+		textcolor(lightgray);
 	end else
 	if ( data.typeof = 'null' ) then
 	begin
+		textcolor(red);
 		write('null');
+		textcolor(lightgray);
 	end else
 	if ( data.typeof = 'array' ) then
 	begin
@@ -313,10 +332,8 @@ begin
 
 		for i := 0 to Len - 1 do
 		begin
-			write( tabs, '  "' );
-			write( padRight( keys[i] + '" : ', maxKeyLen + 4 ) );
-			
-			print_json( data.get( keys[i] ), indent + maxKeyLen + 4, FALSE );
+
+			print_json( data.get( keys[i] ), indent + 4, padRight( keys[i], maxKeyLen ) + ' : ' );
 			
 			if ( i < len - 1 ) then
 				writeln(',')
@@ -351,18 +368,21 @@ begin
 				if ( data.typeof('data') = 'object' ) and ( data.get('data').typeof('explain') = 'string' ) then
 				begin
 
-					writeln(data.get('data').get('explain',''));
+					textcolor(yellow);
+					writeln(data.get('data').get('explain','The command completed successfully'));
+					textcolor(lightgray);
 
-					if ( data.typeof('data') <> 'undefined' ) then
+					if ( data.get('data').typeof('data') <> 'undefined' ) then
 					begin
-						print_json( data.get('data') );
+						print_json( data.get('data').get('data') );
 						writeln;
 					end;
 
 				end else
 				begin
-
+					textcolor(yellow);
 					writeln('The command completed successfully');
+					textcolor(lightgray);
 
 				end;
 

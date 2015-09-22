@@ -1350,9 +1350,41 @@ end;
 
 function TPam2ExecutionContext.cmd_select ( query: TQueryParser ): AnsiString;
 var arg: AnsiString;
+	narg: AnsiString;
+
+    iEnabled: boolean;
+    useEnabled: boolean;
+    iDefault: boolean;
+    useDefault : boolean;
+    
     user: TPam2User;
+    host: TPam2Host;
+    service: TPam2Service;
+    group: TPam2Group;
+
+    subjects: TStrArray;
+    isWildCard: boolean;
+    isMultiple: boolean;
+
+    END_OF_QUERY: TStrArray;
+
+    entityType: integer;
+
+    queryResults: TStrArray;
+    match: boolean;
+
+    numResults : Integer;
+
+    explain: AnsiString;
+
+    i : Integer;
+    Len: Integer;
+
 begin
 	
+	setLength( END_OF_QUERY, 0 );
+	numResults := 0;
+
 	arg := query.nextArg();
 
 	if ( arg = '' ) then
@@ -1364,7 +1396,7 @@ begin
 
 		arg := LowerCase( query.nextArg() );
 
-		if ( arg = 'user' ) then
+		if ( ( arg = 'user' ) or ( arg = 'details' ) or ( arg = 'identity' ) or ( arg = 'profile' ) ) then
 		begin
 			user := db.getUserById( lockedToUserId );
 			
@@ -1398,7 +1430,368 @@ begin
 	end else
 	begin
 
-		raise Exception.Create('Not implemented');
+		iEnabled := FALSE;
+		useEnabled := FALSE;
+
+		iDefault := FALSE;
+		useDefault := FALSE;
+
+
+		arg := lowercase( query.getArg( query.currentArgumentIndex - 1 ) );
+
+		if ( arg = 'enabled' ) or ( arg = 'disabled' ) then
+		begin
+			useEnabled := true;
+
+			if ( arg = 'enabled' ) then
+				iEnabled := true;
+
+			arg := lowercase( query.nextArg );
+
+		end else
+		if ( arg = 'default' ) then
+		begin
+			
+			useDefault := TRUE;
+
+			arg := lowercase( query.nextArg );
+
+		end;
+
+		if ( arg = '' ) then
+		begin
+			raise Exception.Create('Unexpected end of query!');
+		end;
+
+		isWildCard := FALSE;
+
+		// compute the explain
+		explain := 'List ';
+
+		if ( useEnabled ) then
+		begin
+			if ( iEnabled ) then
+				explain := explain + 'enabled '
+			else
+				explain := explain + 'disabled ';
+		end;
+
+		if ( useDefault ) then
+			explain := explain + 'default ';
+
+		case arg of
+			'user': begin
+				isMultiple := false;
+				entityType := ENTITY_USER;
+				
+				arg := trim( query.nextArg() );
+
+				if arg = '' then
+					raise Exception.Create('User name expected!' );
+
+				nArg := db.normalizeEntity( arg, ENTITY_USER );
+
+				if ( nArg = '' ) then
+					raise Exception.Create('Invalid user name "' + arg + '"' );
+
+				setLength( subjects, 1 );
+				subjects[0] := nArg;
+
+				explain := explain + 'user named "' + arg + '"';
+
+			end;
+
+			'users': begin
+				
+				isMultiple := true;
+				entityType := ENTITY_USER;
+
+				subjects := query.readEntities( ENTITY_USER, TRUE, db, END_OF_QUERY, isWildCard );
+
+				if ( not isWildCard ) and ( length(subjects) = 0 ) then
+					raise Exception.Create('Expected a list of users or a wildcard' );
+
+				if ( isWildCard ) then
+					explain := explain + 'users (ALL)'
+				else
+					explain := explain + 'users who are named: "' + str_join( subjects, '", "' ) + '"';
+
+			end;
+
+			'group': begin
+				isMultiple := false;
+				entityType := ENTITY_GROUP;
+
+				arg := trim( query.nextArg() );
+
+				if ( arg = '' ) then
+					raise Exception.Create('Group name expected!' );
+
+				nArg := db.normalizeEntity( arg, ENTITY_GROUP );
+
+				if ( nArg = '' ) then
+					raise Exception.Create('Invalid group name "' + arg + '"' );
+
+				setLength( subjects, 1 );
+				subjects[0] := nArg;
+
+				explain := explain + 'group named "' + arg + '"';
+
+			end;
+
+			'groups': begin
+				isMultiple := true;
+				entityType := ENTITY_GROUP;
+
+				subjects := query.readEntities( ENTITY_GROUP, TRUE, db, END_OF_QUERY, isWildCard );
+
+				if ( not isWildCard ) and ( length(subjects) = 0 ) then
+					raise Exception.Create('Expected a list of groups or a wildcard' );
+
+				if ( isWildCard ) then
+					explain := explain + 'groups (ALL)'
+				else
+					explain := explain + 'groups who are named: "' + str_join( subjects, '", "' ) + '"';
+
+			end;
+
+			'host': begin
+
+				isMultiple := false;
+				entityType := ENTITY_HOST;
+
+				arg := trim( query.nextArg() );
+
+				if ( arg = '' ) then
+					raise Exception.Create('Host name expected!' );
+
+				nArg := db.normalizeEntity(arg, ENTITY_HOST );
+
+				if ( nArg = '' ) then
+					raise Exception.Create('Invalid host name "' + arg + '"' );
+
+				setLength( subjects, 1 );
+				subjects[0] := nArg;
+
+				explain := explain + 'host named "' + arg + '"';
+
+			end;
+
+			'hosts': begin
+				isMultiple := true;
+				entityType := ENTITY_HOST;
+
+				subjects := query.readEntities( ENTITY_HOST, TRUE, db, END_OF_QUERY, isWildCard );
+
+				if ( not isWildCard ) and ( length(subjects) = 0 ) then
+					raise Exception.Create('Expected a list of hosts or a wildcard' );
+
+				if ( isWildCard ) then
+					explain := explain + 'hosts (ALL)'
+				else
+					explain := explain + 'hosts who are named: "' + str_join( subjects, '", "' ) + '"';
+
+			end;
+
+			'service': begin
+
+				isMultiple := false;
+				entityType := ENTITY_SERVICE;
+				
+				arg := trim( query.nextArg );
+				
+				if ( arg = '' ) then
+					raise Exception.Create('Service name expected!' );
+
+				nArg := db.normalizeEntity( arg, ENTITY_SERVICE );
+
+				if ( nArg = '' ) then
+					raise Exception.Create('Invalid service name "' + arg + '"' );
+
+				setLength( subjects, 1 );
+				subjects[0] := nArg;
+
+				explain := explain + 'service named "' + arg + '"';
+
+			end;
+			'services': begin
+				isMultiple := true;
+				entityType := ENTITY_SERVICE;
+
+				subjects := query.readEntities( ENTITY_SERVICE, TRUE, db, END_OF_QUERY, isWildCard );
+
+				if ( not isWildCard ) and ( length(subjects) = 0 ) then
+					raise Exception.Create('Expected a list of services or a wildcard' );
+
+				if ( isWildCard ) then
+					explain := explain + 'services (ALL)'
+				else
+					explain := explain + 'services who are named: "' + str_join( subjects, '", "' ) + '"';
+
+			end
+			else begin
+				raise Exception.Create('Invalid token "' + arg + '"' );
+			end;
+		end; // case
+
+		arg := query.nextArg();
+
+		if ( arg <> '' ) then
+			raise Exception.Create( 'Unexpected token "' + arg + '"' );
+
+		if ( not admin ) then
+			raise Exception.Create( 'Acces denied. This command requires administrative privileges' );
+
+		// test if everything exists
+		len := Length( subjects );
+
+		for i := 0 to len - 1 do
+		begin
+
+			case entityType of
+				ENTITY_USER: begin
+
+					if ( useDefault ) then
+						raise Exception.Create('The "default" filter does not work when selecting users!' );
+
+					user := db.getUserByName( subjects[i] );
+
+					if ( user = NIL ) then
+						raise Exception.Create('User "' + subjects[i] + '" does not exist!' );
+
+				end;
+				ENTITY_GROUP: begin
+
+					if ( useDefault ) then
+						raise Exception.Create('The "default" filter does not work when selecting groups!' );
+
+					group := db.getGroupByName( subjects[i] );
+
+					if ( group = NIL ) then
+						raise Exception.Create('Group "' + subjects[i] + '" does not exist!' );
+
+				end;
+				ENTITY_SERVICE: begin
+
+					if ( useDefault ) then
+						raise Exception.Create('The "default" filter does not work when selecting services!' );
+
+					if ( useEnabled ) then
+						raise Exception.Create( 'The "enabled" or "disabled" filter does not work when searching services' );
+
+					service := db.getServiceByName( subjects[i] );
+
+					if ( service = NIL ) then
+						raise Exception.Create( 'Service "' + subjects[i] + '" does not exist!' );
+
+				end;
+				ENTITY_HOST: begin
+
+					if ( useEnabled ) then
+						raise Exception.Create( 'The "enabled" or "disabled" filter does not work when searching hosts' );
+
+					host := db.getHostByName( subjects[i] );
+
+					if ( host = NIL ) then
+						raise Exception.Create( 'Host "' + subjects[i] + '" does not exist!' );
+
+				end;
+			end;
+
+		end;
+
+		// everything exists.
+
+		setLength( queryResults, 0 );
+
+		for i := 0 to len - 1 do
+		begin
+
+			match := TRUE;
+
+			case entityType of
+
+				ENTITY_USER: begin
+
+					user := db.getUserByName( subjects[i] );
+
+					if ( useEnabled ) and ( user.enabled <> iEnabled ) then
+						match := FALSE;
+
+					if match then
+					begin
+						setLength( queryResults, numResults + 1 );
+						queryResults[ numResults ] := user.toJSON;
+						numResults := numResults + 1;
+					end;
+
+				end;
+
+				ENTITY_GROUP: begin
+
+					group := db.getGroupByName( subjects[i] );
+
+					if ( useEnabled ) and ( not group.enabled ) then
+						match := FALSE;
+
+					if match then
+					begin
+						setLength( queryResults, numResults + 1 );
+						queryResults[numResults] := group.toJSON;
+						numResults := numResults + 1;
+					end;
+
+				end;
+
+				ENTITY_SERVICE: begin
+
+					service := db.getServiceByName( subjects[i] );
+					
+					setLength( queryResults, numResults + 1 );
+					queryResults[ numResults ] := service.toJSON;
+					numResults := numResults + 1;
+
+				end;
+
+				ENTITY_HOST: begin
+
+					host := db.getHostByName( subjects[i] );
+
+					if ( useDefault ) and ( not host.default ) then
+						match := FALSE;
+
+					if match then
+					begin
+						setLength( queryResults, numResults + 1 );
+						queryResults[ numResults ] := host.toJSON;
+						numResults := numResults + 1;
+					end;
+
+				end;
+
+			end;
+
+		end;
+
+		explain := explain + ' : ' + IntToStr( numResults ) + ' result(s) found';
+
+		if ( isMultiple ) then
+		begin
+
+			result := '{"explain": ' + json_encode( explain ) + ', "data": [' + str_join(queryResults, ',') + '] }';
+
+		end else
+		begin
+
+			if ( numResults > 0 ) then
+			begin
+				result := '{"explain": ' + json_encode( explain ) + ', "data": ' + queryResults[0] + '}';
+			end else
+			begin
+				result := '{"explain": ' + json_encode( explain ) + ', "data": null }';
+			end;
+
+		end;
 
 	end;
 

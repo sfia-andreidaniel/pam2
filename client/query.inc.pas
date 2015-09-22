@@ -269,7 +269,7 @@ begin
 
 	end;
 
-	textcolor(white);
+	textcolor(lightgray);
 
 	write('> ');
 
@@ -379,7 +379,15 @@ begin
 						inspos := inspos - 1;
 					end;
 
-				end
+				end;
+
+				#27: begin
+
+					cmd := 'quit';
+					inspos := 0;
+					c := #13;
+
+				end;
 			end;
 
 		end;

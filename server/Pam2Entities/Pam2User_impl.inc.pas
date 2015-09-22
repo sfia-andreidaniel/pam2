@@ -382,11 +382,13 @@ function TPam2User._toJSON(): AnsiString;
 begin
 	result := '{"type":"user",';
 
+	result := result + '"id":' + json_encode(_user_id) + ',';
 	result := result + '"name":' + json_encode( _login_name ) + ',';
 	result := result + '"realName":' + json_encode( _real_name ) + ',';
 	result := result + '"email":' + json_encode( _email ) + ',';
 	result := result + '"enabled":'+json_encode( _enabled ) + ',';
-	result := result + '"id":' + json_encode(_user_id);
+	result := result + '"isAdmin":' + json_encode( _admin ) + ',';
+	result := result + '"groups":' + json_encode( _getGroupNames );
 
 	result := result + '}';
 end;
