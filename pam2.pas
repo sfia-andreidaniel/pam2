@@ -1,5 +1,5 @@
 {$define client}
-uses crt, AppUtils, StringsLib, sysutils;
+uses crt, AppUtils, StringsLib, sysutils, Classes, Process, JSON;
 
 var node_path : AnsiString;
     query : TStrArray;
@@ -28,6 +28,7 @@ var node_path : AnsiString;
 {$I server/Pam2Entities/QueryParser_decl.inc.pas}
 {$I server/Pam2Entities/QueryParser_impl.inc.pas}
 
+{$I client/local.inc.pas}
 {$I client/help.inc.pas}
 {$I client/query.inc.pas}
 
@@ -200,11 +201,40 @@ begin
 		die( 'Incomplete arguments list. Expected a PAM2 query!' );
 	end;
 
+	if ( u_host = false ) then
+	begin
+
+		u_host := true;
+		hostname := 'localhost';
+
+	end;
+
+	if ( u_user = false ) then
+	begin
+
+		// set username to current logged in user
+		u_user := true;
+		username := getCurrentUserName;
+
+	end;
+
 	if ( isQuery ) then
 	begin
-		do_query( query );
+		if ( u_host = true ) and ( u_pwd = true ) and ( u_user = true ) then
+			do_query( query )
+		else
+			die('You must specify the host, user, and password in order to execute commands in non-interactive mode' );
 	end else
 	begin
+
+		if ( u_pwd = false ) then
+		begin
+
+			do_login;
+			writeln;
+
+		end;
+
 		repeat
 			
 			read_query( query, username, hostname, u_user, u_host, u_pwd );

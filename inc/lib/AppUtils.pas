@@ -6,7 +6,8 @@ interface uses
     IniFiles,
     sysutils,
     StringsLib,
-    Classes;
+    Classes
+    {$ifdef win32}, Windows{$endif};
 
 const 
     PATH_SEPARATOR = {$ifdef WIN32}'\'{$else}'/'{$endif};
@@ -42,6 +43,9 @@ function searchExecutable( exeNameWithoutExtension: AnsiString ): AnsiString;
 
 { dumps a message on stderr and exits with code x }
 procedure die( message: AnsiString; const errorCode: Byte = 1 );
+
+{ Returns the name of the current user name }
+function getCurrentUserName: string;
 
 implementation
 
@@ -282,8 +286,35 @@ begin
     halt( errorCode );
 end;
 
+function getCurrentUserName: string;
+{$ifdef win32}
+{$mode delphi}{$H+}
+const cnMaxUserNameLen = 254;
+var sUserName     : string;
+    dwUserNameLen : DWord;
+begin
+    dwUserNameLen := cnMaxUserNameLen-1;
+    SetLength( sUserName, cnMaxUserNameLen );
+    GetUserName(PChar( sUserName ), dwUserNameLen );
+    SetLength( sUserName, dwUserNameLen );
+    Result := copy( sUserName, 1, length( sUserName ) - 1 );
+{$mode objfpc}
+{$else}
+begin
+    result := GetEnvironmentVariable('USER');
+    if ( result = '' ) then
+    begin
+        result := GetEnvironmentVariable('USERNAME');
+        if ( result = '' ) then
+            result := 'root';
+
+    end;
+{$endif}
+end;
+
+
 initialization
 
-    ENV_PATH := getEnvironmentVariable( 'PATH' );
+    ENV_PATH := sysutils.getEnvironmentVariable( 'PATH' );
 
 end.

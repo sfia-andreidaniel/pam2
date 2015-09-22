@@ -1,15 +1,55 @@
 procedure do_query( query: TStrArray );
-
 var i: integer;
     len: integer;
-
+    ehost: TStrArray;
 begin
 
-	len := length( query );
-
-	for i := 0 to len - 1 do writeln( i, '=>', query[i] );
-
 	writeln;
+
+	if ( is_login( query ) ) then
+	begin
+
+		do_login();
+		writeln;
+
+	end else
+	if ( is_host( query ) ) then
+	begin
+
+		do_host( query );
+		writeln;
+
+	end else
+	if ( is_help( query ) ) then
+	begin
+
+		do_help();
+		writeln;
+
+	end else
+	if ( is_clear( query ) ) then
+	begin
+
+		clrscr;
+
+	end else
+	begin
+
+		if ( length( query ) > 0 ) then
+		begin
+
+			if (u_host = false) then
+			begin
+				setlength( eHost, 1 );
+				ehost[0] := 'host';
+				do_host( ehost );
+				writeln;
+			end;
+			exec_remote_command( query );
+		end;
+
+		writeln;
+	end;
 
 end;
 
@@ -110,6 +150,80 @@ begin
 
 end;
 
+procedure cli_compute_text_display( realCommandLine: AnsiString; realCursorPos: Integer; textWidth: integer; var cmdLine: AnsiString; var curPos: Integer );
+var i: Integer;
+    j: Integer;
+    len: Integer;
+    out: Integer;
+    addLeft: AnsiString;
+    addRight: AnsiString;
+    ch: AnsiString;
+begin
+		Len := Length( realCommandLine );
+
+		if ( Len <= textWidth ) then
+		begin
+
+			cmdLine := realCommandLine;
+			curPos := realCursorPos;
+
+		end else
+		begin
+
+			addLeft := '';
+			addRight := '';
+
+			curPos := 0;
+
+			i := realCursorPos;
+
+			j := 0;
+
+
+			while ( ( Length(addLeft) + Length(addRight) ) < textWidth ) do
+			begin
+
+				if ( j = 0 ) then
+				begin
+
+					if ( i <= Len ) then
+					begin
+						addRight := addRight + realCommandLine[i];
+					end;
+
+				end else
+				begin
+
+
+					if ( i + j <= Len ) then
+					begin
+
+						addRight := addRight + realCommandLine[i+j];
+
+					end;
+
+					if ( i - j > 0 ) then
+					begin
+
+						addLeft := realCommandLine[i-j] + addLeft;
+
+					end;
+
+				end;
+
+				curPos := Length(addLeft) + 1;
+
+				j := j + 1;
+
+			end;
+
+			cmdLine := addLeft + addRight;
+
+
+		end;
+
+end;
+
 procedure read_query( var query: TStrArray; user: AnsiString; host: AnsiString; var read_user: boolean; var read_host: boolean; var read_password: boolean );
 var x: integer;
     c: char;
@@ -119,6 +233,11 @@ var x: integer;
     histline: ansistring;
 
     parser: TQueryParser;
+    
+    maxx: Integer;
+
+    renderCommand: AnsiString;
+    renderCursorPos: Integer;
 
 begin
 
@@ -230,10 +349,22 @@ begin
 						#83: begin //delete
 							if ( inspos < length(cmd) ) then
 								delete( cmd, inspos + 1, 1 );
+						end;
+
+						#71: begin// home
+
+							inspos := 0;
+
+						end;
+
+						#79: begin //end
+
+							inspos := Length( cmd );
+
 						end
 
 						else begin
-							writeln( '#0', ord(c) );
+							//writeln( '#0', ord(c) );
 						end;
 
 					end;
@@ -254,36 +385,43 @@ begin
 		end;
 
 		gotoxy( x, wherey );
+
+		cli_compute_text_display( cmd, inspos, windMaxX - x - 2, renderCommand, renderCursorPos );
+
 		clreol();
 		textcolor( lightgray );
-		write( cmd );
+		write( renderCommand );
 
-		gotoxy( x + inspos, wherey );
+		gotoxy( x + renderCursorPos, wherey );
 
 	until c = #13;
 
-	if ( add_to_history( cmd ) ) then
-	begin
+	setLength( query, 0 );
 
-		setLength( query, 0 );
-		parser := TQueryParser.Create( cmd );
+	if ( trim(cmd) = '' ) then writeln
+	else begin
 
-		repeat
+		if ( add_to_history( cmd ) ) then
+		begin
 
-			cmd := parser.nextArg;
+			parser := TQueryParser.Create( cmd );
 
-			if ( cmd <> '' ) then
-			begin
-				setLength( query, length(query) + 1 );
-				query[length(query)-1] := cmd;
-			end;
+			repeat
 
-		until cmd = '';
+				cmd := parser.nextArg;
 
-		parser.Free;
+				if ( cmd <> '' ) then
+				begin
+					setLength( query, length(query) + 1 );
+					query[length(query)-1] := cmd;
+				end;
+
+			until cmd = '';
+
+			parser.Free;
+
+		end;
 
 	end;
-
-	writeln();
 
 end;

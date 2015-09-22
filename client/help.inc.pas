@@ -24,3 +24,58 @@ begin
 		result := false;
 	end;
 end;
+
+function is_login( cmd: TStrArray ): boolean;
+begin
+
+	if ( length( cmd ) = 1 ) and ( lowercase( cmd[0] ) = 'login' ) then
+	begin
+		result := true;
+	end else
+	begin
+		result := false;
+	end;
+
+end;
+
+function is_clear( cmd: TStrArray ): boolean;
+begin
+
+	if ( length( cmd ) = 1 ) and ( lowercase( cmd[0] ) = 'clear' ) then
+	begin
+		result := true;
+	end else
+	begin
+		result := false;
+	end;
+
+end;
+
+
+function is_host( cmd: TStrArray ): boolean;
+begin
+
+	if ( length( cmd ) >= 1 ) and ( lowercase(cmd[0]) = 'host' ) then
+	begin
+
+		result := true;
+
+	end else
+	begin
+		result := false;
+	end;
+
+end;
+
+function is_help( cmd: TStrArray ): boolean;
+begin
+
+	if ( length( cmd ) = 1 ) and ( lowercase(cmd[0]) = 'help' ) then
+	begin
+		result := true;
+	end else
+	begin
+		result := false;
+	end;
+
+end;
