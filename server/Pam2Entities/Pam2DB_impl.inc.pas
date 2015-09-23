@@ -16,6 +16,8 @@ begin
 	setLength( HSGPermissions, 0 );
 	setLength( HSUPermissions, 0 );
 	setLength( UGBindings, 0 );
+	setLength( SOBindings, 0 );
+	setLength( SHOBindings, 0 );
 
 	Console.log('Loading PAM2DB');
 
@@ -164,6 +166,18 @@ begin
 
 	for i := 0 to Len - 1 do
 		addSnapshot( 'UG: ' + IntToStr( UGBindings[i].user.id ) + ' ' + IntToStr( UGBindings[i].group.id ) );
+
+	// SNAPSHOT SO BINDINGS
+	len := Length( SOBindings );
+
+	for i := 0 to Len - 1 do
+		addSnapshot( 'SO: ' + IntToStr( SOBindings[i].service.id ) + ' ' + SOBindings[i].name + ' ' + SOBindings[i].value );
+
+	// SNAPSHOT SHO BINDINGS
+	len := Length( SHOBindings );
+
+	for i := 0 to Len - 1 do
+		addSnapshot( 'SHO: ' + IntToStr( SHOBindings[i].service.id ) + ' ' + IntToStr( SHOBindings[i].host.id ) + ' ' + SHOBindings[i].name + ' ' + SHOBindings[i].value );
 
 	Console.notice( 'TPam2DB: Snapshot Ended (' + IntToStr( Length( snapshot ) ) + ' lines)' );
 
@@ -417,10 +431,10 @@ begin
 end;
 
 procedure TPam2DB.dispatchSnapshotLine( snapshotLine: AnsiString );
-var propName: AnsiString;
+{ var propName: AnsiString;
     propValue: AnsiString;
     dotPos: Integer;
-    len: Integer;
+    len: Integer; }
 begin
 	Console.error( 'dispatch :' + snapshotLine );
 end;
@@ -445,16 +459,18 @@ begin
 
 	Console.notice( 'TPam2DB: Rollback Begin' );
 
+	// CLEAR EXISTING BINDINGS AND PERMISSIONS MAPPINGS
+	setLength( UGBindings, 0 );
+	setLength( HSGPermissions, 0 );
+	setLength( HSUPermissions, 0 );
+	setLength( SOBindings, 0 );
+	setLength( SHOBindings, 0 );
+
 	// FREE HOSTS, SERVICES, GROUPS, and USERS without saving
 	len := Length( hosts );    for i:= 0 to len - 1 do hosts[i].FreeWithoutSaving();    setLength( hosts, 0 );
 	len := Length( services ); for i:= 0 to Len - 1 do services[i].FreeWithoutSaving(); setLength( services, 0 );
 	len := Length( groups );   for i:= 0 to len - 1 do groups[ i ].FreeWithoutSaving(); setLength( groups, 0 );
 	len := Length( users );    for i:= 0 to len - 1 do users[ i ].FreeWithoutSaving();  setLength( users, 0 );
-
-	// CLEAR EXISTING BINDINGS AND PERMISSIONS MAPPINGS
-	setLength( UGBindings, 0 );
-	setLength( HSGPermissions, 0 );
-	setLength( HSUPermissions, 0 );
 
 	// RE-CREATE ENTITIES ( WITHOUT ANY PROPERTIES AT FIRST )
 	len := Length( snapshot );
@@ -1120,7 +1136,7 @@ begin
 
 		addExplanation( 'Create a new service called "' + serviceName + '"' );
 
-		services[ len ] := TPam2Service.Create( self, 0, lServiceName, FALSE );
+		services[ len ] := TPam2Service.Create( self, 0, lServiceName, 'plain', FALSE );
 
 		result := services[ len ];
 
@@ -1259,6 +1275,12 @@ begin
 
 	// FREE UGBindings
 	setLength( UGBindings, 0 );
+
+	// FREE SOBindings
+	setLength( SOBindings, 0 );
+
+	// FREE SHOBindings
+	setLength( SHOBindings, 0 );
 
 	// FREE ENTITIES
 	len := length( hosts );
@@ -1845,4 +1867,462 @@ procedure TPam2DB.setHasErrors( on: Boolean );
 begin
 	if ( on = FALSE ) and ( Length( errors ) > 0 )
 	then setLength( errors, 0 );
+end;
+
+procedure TPam2DB.bindSO( service: TPam2Service; option: AnsiString; value: AnsiString );
+var i: Integer;
+    Len: Integer;
+    binding: TPam2ServiceOption;
+    lcoption: AnsiString;
+begin
+	Len := Length( SOBindings );
+	
+	lcOption := LowerCase( option );
+
+	for i := 0 to Len - 1 do
+	begin
+		if SOBindings[i].service.equals( service ) and ( SOBindings[i].name = lcOption ) then
+		begin
+			if ( SOBindings[i].value <> value ) then
+			begin
+				SOBindings[i].value := value;
+				addSQLStatement( 'UPDATE service_options SET default_value = ' + json_encode( value ) + ' WHERE service_id = ' + IntToStr( service.id ) + ' AND option_name = ' + json_encode( option ) + ' LIMIT 1' );
+			end;
+			exit;
+		end;
+	end;
+
+	binding.service := service;
+	binding.name := lcOption;
+	binding.value := value;
+
+	setLength( SOBindings, Len + 1 );
+	SOBindings[ len ] := binding;
+
+	addSQLStatement( 'INSERT INTO service_options ( service_id, option_name, default_value ) VALUES (' + IntToStr( service.id ) + ', ' + json_encode( lcOption ) + ', ' + json_encode( value ) + ')' );
+
+end;
+
+procedure TPam2DB.bindSO( serviceId: Integer; option: AnsiString; value: AnsiString );
+var service: TPam2Service;
+begin
+	service := getServiceById( serviceId );
+	
+	if ( service = NIL ) then
+		raise Exception.Create('Service with id #' + IntToStr( serviceId ) + ' was not found!' );
+
+	bindSO( service, option, value );
+end;
+
+procedure TPam2DB.unbindSO( service: TPam2Service; option: AnsiString );
+var len: Integer;
+    i: Integer;
+    lcOption : AnsiString;
+    Removed: Boolean;
+begin
+
+	lcOption := LowerCase( option );
+
+	Len := Length( SOBindings );
+
+	removed := FALSE;
+
+	for i := Len - 1 downto 0 do
+	begin
+		if SOBindings[i].service.equals( service ) and ( SOBindings[i].name = lcOption ) then
+		begin
+			Len := array_remove( SOBindings, i );
+			Removed := TRUE;
+			break;
+		end;
+	end;
+
+	if ( removed ) then
+	begin
+		
+		if ( service.id <> 0 ) then
+		begin
+			addSQLStatement( 'DELETE FROM service_options WHERE service_id = ' + IntToStr( service.id ) + ' AND option_name = ' + json_encode( lcOption ) + ' LIMIT 1' );
+		end;
+
+		unbindSHO( service, option );
+
+	end;
+
+end;
+
+
+procedure TPam2DB.unbindSO( service: TPam2Service );
+var len: Integer;
+	i: Integer;
+	removed : Boolean;
+begin
+
+	Len := Length( SOBindings );
+
+	removed := FALSE;
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SOBindings[i].service.equals( service ) ) then
+		begin
+
+			Len := array_remove( SOBindings, i );
+			Removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		
+		if ( service.id <> 0 ) then
+			addSQLStatement( 'DELETE FROM service_options WHERE service_id = ' + IntToStr( service.id ) );
+
+		unbindSHO( service );
+
+	end;
+
+end;
+
+function TPam2DB.getSOBindings( service: TPam2Service ): TPam2ServiceOption_List;
+var i: Integer;
+	Len: Integer;
+	Len2: Integer;
+begin
+	Len2 := 0;
+	setLength( result, Len2 );
+
+	Len := Length( SOBindings );
+
+	for i := 0 to Len - 1 do
+	begin
+		if ( SOBindings[i].service.equals( service ) ) then
+		begin
+			SetLength( result, Len2 + 1 );
+			result[ Len2 ] := SOBindings[i];
+			Len2 := Len2 + 1;
+		end;
+	end;
+
+end;
+
+procedure TPam2DB.bindSHO ( service: TPam2Service; host: TPam2Host; option: AnsiString; value: AnsiString );
+var lcOption: AnsiString;
+	i: Integer;
+	Len: Integer;
+	binding: TPam2ServiceHostOption;
+begin
+	lcOption := trim( LowerCase( option ) );
+	
+	Len := Length( SHOBindings );
+
+	for i := 0 to len - 1 do
+	begin
+
+		if ( SHOBindings[i].service.equals( service ) ) and ( SHOBindings[i].host.equals(host) ) and ( SHOBindings[i].name = lcOption ) then
+		begin
+			if ( SHOBindings[i].value <> value ) then
+			begin
+				SHOBindings[i].value := value;
+				addSQLStatement( 'UPDATE service_host_options SET option_value = ' + json_encode( value ) + ' WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) + ' AND option_name = ' + json_encode( lcOption ) + ' LIMIT 1' );
+			end;
+			exit;
+		end;
+
+	end;
+
+	binding.service := service;
+	binding.host := host;
+	binding.name := lcOption;
+	binding.value := value;
+
+	setLength( SHOBindings, Len + 1 );
+
+	SHOBindings[ Len ] := binding;
+
+	addSQLStatement( 'INSERT INTO service_host_options ( service_id, host_id, option_name, option_value ) VALUES ( '
+		+ IntToStr( service.id ) + ', '
+		+ IntToStr( host.id ) + ', '
+		+ json_encode( lcOption ) + ', '
+		+ json_encode( value ) + 
+		' )'
+	);
+
+end;
+
+procedure TPam2DB.bindSHO ( serviceId: Integer; hostId: Integer; option: AnsiString; value: AnsiString );
+var service: TPam2Service;
+    host: TPam2Host;
+begin
+
+	service := getServiceById( serviceId );
+
+	if ( service = NIL ) then
+		raise Exception.Create( 'Service #' + IntToStr( serviceId ) + ' was not found!' );
+
+	host := getHostById( hostId );
+
+	if ( host = NIL ) then
+		raise Exception.Create( 'Host #' + IntToStr( hostId ) + ' was not found!' );
+
+	bindSHO( service, host, option, value );
+
+end;
+
+procedure TPam2DB.unbindSHO ( service: TPam2service; host: TPam2Host );
+var i: Integer;
+    Len: Integer;
+    removed: Boolean;
+begin
+	
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].service.equals( service ) ) and ( SHOBindings[i].host.equals( host ) ) then
+		begin
+			len := array_remove( SHOBindings, i );
+			removed := TRUE;
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE service_id = ' + IntToStr( service.id ) + ' AND host_id = ' + IntToStr( host.id ) );
+	end;
+
+end;
+
+procedure TPam2DB.unbindSHO ( service: TPam2Service );
+var i: Integer;
+    Len: Integer;
+    removed: Boolean;
+begin
+
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].service.equals( service ) ) then
+		begin
+
+			Len := array_remove( SHOBindings, i );
+			removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE service_id = ' + IntToStr( service.id ) );
+	end;
+
+end;
+
+procedure TPam2DB.unbindSHO ( host: TPam2Host );
+var i: Integer;
+ 	Len: Integer;
+ 	removed: Boolean;
+begin
+
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].host.equals( host ) ) then
+		begin
+
+			Len := array_remove( SHOBindings, i );
+			removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE host_id = ' + IntToStr( host.id ) );
+	end;
+
+end;
+
+function  TPam2DB.getSHOBindings ( service: TPam2Service; host: TPam2Host ) : TPam2ServiceHostOption_List;
+var i: Integer;
+    Len: Integer;
+    Len2: Integer;
+begin
+
+	Len2 := 0;
+	setLength( result, Len2 );
+
+	Len := Length( SHOBindings );
+
+	for i := 0 to Len - 1 do
+		if ( SHOBindings[i].service.equals( service ) ) and ( SHOBindings[i].host.equals(host) ) then
+		begin
+			setLength( result, Len2 + 1 );
+			result[ Len2 ] := SHOBindings[i];
+			Len2 := Len2 + 1;
+		end;
+
+end;
+
+function  TPam2DB.getSHOBindings ( service: TPam2Service ) : TPam2ServiceHostOption_List;
+var i : Integer;
+ 	Len: Integer;
+ 	Len2: Integer;
+begin
+
+	Len2 := 0;
+	setLength( result, Len2 );
+
+	Len := Length( SHOBindings );
+
+	for i := 0 to Len - 1 do
+		if ( SHOBindings[i].service.equals( service ) ) then
+		begin
+			setLength( result, Len2 + 1 );
+			result[ Len2 ] := SHOBindings[ i ];
+			Len2 := Len2 + 1;
+		end;
+
+end;
+
+function  TPam2DB.getSHOBindings ( host: TPam2Host ) : TPam2ServiceHostOption_List;
+var i : Integer;
+ 	Len: Integer;
+ 	Len2: Integer;
+begin
+
+	Len2 := 0;
+	setLength( result, Len2 );
+
+	Len := Length( SHOBindings );
+
+	for i := 0 to Len - 1 do
+		if ( SHOBindings[i].host.equals( host ) ) then
+		begin
+			setLength( result, Len2 + 1 );
+			result[ Len2 ] := SHOBindings[ i ];
+			Len2 := Len2 + 1;
+		end;
+
+end;
+
+procedure TPam2DB.unbindSHO( service: TPam2Service; option: AnsiString );
+var i: Integer;
+ 	Len: Integer;
+ 	removed: Boolean;
+ 	lcOption: AnsiString;
+begin
+
+	lcOption := LowerCase( trim( option ) );
+
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].service.equals( service ) ) and ( SHOBindings[i].name = lcOption ) then
+		begin
+
+			Len := array_remove( SHOBindings, i );
+			removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE service_id = ' + IntToStr( service.id ) + ' AND option_name = ' + json_encode( lcOption ) );
+	end;
+
+end;
+
+procedure TPam2DB.unbindSHO( host: TPam2Host;  option: AnsiString );
+var i: Integer;
+ 	Len: Integer;
+ 	removed: Boolean;
+ 	lcOption: AnsiString;
+begin
+
+	lcOption := LowerCase( trim( option ) );
+
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].host.equals( host ) ) and ( SHOBindings[i].name = lcOption ) then
+		begin
+
+			Len := array_remove( SHOBindings, i );
+			removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE host_id = ' + IntToStr( host.id ) + ' AND option_name = ' + json_encode( lcOption ) );
+	end;
+
+end;
+
+procedure TPam2DB.unbindSHO( service: TPam2Service; host: TPam2Host; option: AnsiString );
+var i: Integer;
+ 	Len: Integer;
+ 	removed: Boolean;
+ 	lcOption: AnsiString;
+begin
+
+	lcOption := LowerCase( trim( option ) );
+
+	removed := FALSE;
+
+	Len := Length( SHOBindings );
+
+	for i := Len - 1 downto 0 do
+	begin
+
+		if ( SHOBindings[i].host.equals( host ) ) and ( SHOBindings[i].service.equals(service) ) and ( SHOBindings[i].name = lcOption ) then
+		begin
+
+			Len := array_remove( SHOBindings, i );
+			removed := TRUE;
+
+		end;
+
+	end;
+
+	if ( removed ) then
+	begin
+		addSQLStatement( 'DELETE FROM service_host_options WHERE host_id = ' + IntToStr( host.id ) + ' AND service_id = ' + IntToStr( service.id ) + ' AND option_name = ' + json_encode( lcOption ) );
+	end;
+
+end;
+
+function TPam2DB.getBinDump(): AnsiString;
+begin
+	result := str_join( snapshot, #10#13 );
 end;

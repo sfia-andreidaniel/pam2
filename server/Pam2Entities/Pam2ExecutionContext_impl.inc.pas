@@ -39,8 +39,12 @@ begin
 		if arg = 'select' then
 		begin
 			result := cmd_select( query );
-		end
-		else if arg = 'help' then
+		end else
+		if arg = 'dump' then
+		begin
+			result := cmd_dump( query );
+		end else 
+		if arg = 'help' then
 		begin
 			result := cmd_help( query );
 		end else
@@ -56,14 +60,445 @@ begin
 	end;
 end;
 
-function TPam2ExecutionContext.cmd_host   ( query: TQueryParser ): AnsiString;
+function TPam2ExecutionContext.cmd_host( query: TQueryParser ): AnsiString;
 begin
 	raise Exception.Create( 'host command is not implemented' );
 end;
 
-function TPam2ExecutionContext.cmd_service( query: TQueryParser ): AnsiString;
+function TPam2ExecutionContext.cmd_dump( query: TQueryParser ): AnsiString;
+var arg: AnsiString;
+	dump: AnsiString;
 begin
-	raise Exception.Create( 'service command is not implemented' );
+	
+	arg := trim( lowerCase( query.nextArg() ) );
+
+	if ( arg = '' ) then
+		raise Exception.Create( 'Unexpected end of query. Expected token "STATE".')
+	else
+	if ( arg = 'state' ) then
+	begin
+
+		if ( not admin ) then
+			raise Exception.Create( 'Access denied. This operation requires administrative privileges' );
+
+		db.createSnapshot();
+
+		dump := db.binaryDump;
+
+		db.discardSnapshot();
+
+		result := '{"explain": "Show binary dump", "data": ' + json_encode( dump ) + '}';
+
+	end else
+		raise Exception.Create( 'Unexpected token "' + arg + '". Expected token "STATE".' );
+
+end;
+
+function TPam2ExecutionContext.cmd_service( query: TQueryParser ): AnsiString;
+var arg: AnsiString;
+    op: Integer;
+    serviceName: AnsiString;
+    optionName: AnsiString;
+    optionValue: AnsiString;
+    
+    subjects: TStrArray;
+    subjects1 : TStrArray;
+
+    Len: Integer;
+    Len1: Integer;
+    I: Integer;
+    J: Integer;
+    isWildCard: Boolean;
+    isWildCard1: Boolean;
+
+    explain: AnsiString;
+
+    END_OF_QUERY: TStrArray;
+    END_OF_QUERY_ON: TStrArray;
+
+    service: TPam2Service;
+    host: TPam2Host;
+
+    passwordType: AnsiString;
+
+begin
+	
+	setLength( END_OF_QUERY, 0 );
+	setLength( END_OF_QUERY_ON, 1 ); END_OF_QUERY_ON[0] := 'on';
+
+	passwordType := '';
+
+	explain := '';
+
+	arg := trim( lowercase( query.nextArg() ) );
+
+	if ( arg = 'add' ) then
+	begin
+		op := OP_ADD;
+	end else
+	if ( arg = 'remove' ) then
+	begin
+		op := OP_REMOVE;
+	end else
+	if ( arg = '' ) then
+	begin
+		raise Exception.Create('Expected token ADD or REMOVE' );
+	end else
+	begin
+		raise Exception.Create('Invalid token "' + arg + '" @ pos ' + IntToStr( query.currentArgumentIndex ) );
+	end;
+
+	arg := trim( lowercase( query.nextArg ) );
+
+	if ( op = OP_ADD ) then
+	begin
+
+		if ( arg = 'with' ) then
+		begin
+
+			arg := trim( lowercase( query.nextArg ) );
+
+			if ( arg = '' ) then
+				raise Exception.Create('Unexpected end of query. Expected token "PASSWORD_TYPE"' )
+			else
+			if ( arg = 'password_type' ) then
+			begin
+
+				arg := trim( lowercase( query.nextArg ) );
+
+				if ( arg = '' ) then
+					raise Exception.Create('Unexpected end of query. Expected PASSWORD_TYPE_VALUE.' );
+
+				if ( arg <> 'plain' ) and ( arg <> 'md5' ) and ( arg <> 'password' ) and ( arg <> 'crypt' ) and ( arg <> 'bin' ) then
+					raise Exception.Create('Unknown service password type "' + arg + '". Expected PLAIN | MD5 | PASSWORD | CRYPT | BIN' );
+
+				passwordType := arg;
+
+				arg := query.nextArg;
+
+			end else
+			begin
+				raise Exception.Create('Unexpected token "' + arg + '". Expected token "PASSWORD_TYPE".');
+			end;
+
+		end;
+
+	end;
+
+	if ( arg = 'option' ) then
+	begin
+
+		if ( passwordType <> '' ) then
+			raise Exception.Create('Unexpected token "' + arg + '". Expected {SERVICE_NAME}!' );
+
+		arg := trim( lowerCase( query.nextArg() ) );
+
+		if ( arg = '' ) then
+			raise Exception.Create('Unexpected end of query. Expected {OPTION_NAME}');
+
+		if ( op = OP_ADD ) then
+			explain := 'Add an option called "'
+		else
+			explain := 'Remove the option called "';
+
+		optionName := db.normalizeEntity( arg, ENTITY_SERVICE_OPTION );
+
+		if ( optionName = '' ) then
+			raise Exception.Create('Invalid option name "' + arg + '"' );
+
+		explain := explain + optionName + '" ';
+
+		optionValue := '';
+
+		arg := trim( query.nextArg );
+
+		if ( lowerCase(arg) = 'value' ) then
+		begin
+
+			arg := trim( query.nextArg );
+
+			optionValue := arg;
+
+			explain := explain + 'with value "' + optionValue + '" ';
+
+			arg := trim( query.nextArg );
+
+		end;
+
+		if ( lowerCase(arg) = 'for' ) then
+		begin
+
+			arg := trim( lowerCase( query.nextArg ) );
+
+			if ( arg = '' ) then
+				raise Exception.Create('Unexpected end of query. Expected "SERVICE" or "SERVICES", at pos ' + IntToStr( query.currentArgumentIndex ) );
+
+			if ( arg <> 'service' ) and ( arg <> 'services' ) then
+				raise Exception.Create('Unexpected token "' + arg + '". Expected "SERVICE" or "SERVICES", at pos ' + IntToStr( query.currentArgumentIndex ) );
+
+			subjects := query.readEntities( ENTITY_SERVICE, TRUE, db, END_OF_QUERY_ON, isWildCard );
+
+			if ( not isWildCard ) and ( length(subjects) = 0 ) then
+				raise Exception.Create('Expected a {SERVICE_NAME} or a {SERVICE_LIST}, at pos ' + IntToStr(query.currentArgumentIndex) );
+
+			if ( isWildCard ) then
+				explain := explain + 'for ALL (' + IntToStr( Length(subjects) ) + ') services'
+			else
+				explain := explain + 'for services "' + str_join( subjects, '", "' ) + '"';
+
+			arg := trim( lowerCase( query.nextArg() ) );
+
+			if ( arg = '' ) then
+			begin
+
+				// ADD OR REMOVE SERVICE OPTIONS FOR A SERVICE LIST
+
+				if admin = FALSE then
+					raise Exception.Create('Access denied. This operation requires administrative context!' );
+
+				// test if all services exist.
+				len := Length( subjects );
+
+				for i := 0 to Len - 1 do
+				begin
+					if ( not db.serviceExists( subjects[i] ) ) then
+						raise Exception.Create( 'Service "' + subjects[i] + '" does not exist!' );
+				end;
+
+				// DO THE SHIT
+
+				db.createSnapshot();
+
+				try
+
+					for i := 0 to Len - 1 do
+					begin
+						service := db.getServiceByName( subjects[i] );
+						
+						if ( op = OP_ADD ) then
+						begin
+
+							db.bindSO( service, optionName, optionValue );
+
+						end else
+						if ( op = OP_REMOVE ) then
+						begin
+
+							db.unbindSO( service, optionName );
+
+						end;
+
+					end;
+
+					db.commit();
+
+					result := '{"explain": ' + json_encode( explain ) + '}';
+
+					db.discardSnapshot();
+
+				except
+					On E: Exception do
+					begin
+						db.rollbackSnapshot();
+						raise;
+					end
+				end;
+
+			end else
+			if ( arg = 'on' ) then
+			begin
+				// ADD OR REMOVE SERVICE OPTIONS FOR A SERVICE LIST TO A HOST LIST
+
+				subjects1 := query.readEntities( ENTITY_HOST, TRUE, db, END_OF_QUERY, isWildCard1 );
+
+				if ( not isWildCard1 ) and ( Length( subjects1 ) = 0 ) then
+				begin
+					raise Exception.Create('Expected a {HOST_LIST} enumeration, at arg ' + IntToStr( query.currentArgumentIndex ) );
+				end;
+
+				if ( isWildCard1 ) then
+					explain := explain + ' on ALL (' + IntToStr( Length( subjects1 ) ) + ') hosts'
+				else
+					explain := explain + ' on hosts "' + str_join( subjects1, '", "' ) + '"';
+
+				if admin = FALSE then
+					raise Exception.Create('Access denied. This operation requires administrative context!' );
+
+				// test if all services exists.
+
+				Len := Length( subjects );
+
+				for i := 0 to Len - 1 do
+				begin
+					service := db.getServiceByName( subjects[i] );
+
+					if ( service = NIL ) then
+						raise Exception.Create( 'No such service "' + subjects[i] + '"' );
+
+				end;
+
+				// test if all hosts exists
+
+				Len := Length( subjects1 );
+
+				for i := 0 to Len - 1 do
+				begin
+					if ( not db.hostExists( subjects1[i] ) ) then
+						raise Exception.Create('No such host "' + subjects1[i] + '"' );
+				end;
+
+				// DO THE SHIT
+				Len := Length( subjects );
+				Len1 := Length( subjects1 );
+
+				if ( Len > 0 ) and ( Len1 > 0 ) then
+				begin
+
+					db.createSnapshot();
+
+					try
+
+						for i := 0 to Len - 1 do
+						begin
+
+							service := db.getServiceByName( subjects[i] );
+							
+							if ( service = NIL ) then
+								raise Exception.Create('No such service "' + subjects[i] );
+
+							if ( not service.hasOption( optionName ) ) and ( op = OP_ADD ) then
+								db.bindSO( service, optionName, optionValue );
+
+							for j := 0 to Len1 - 1 do
+							begin
+
+								host := db.getHostByName( subjects1[j] );
+
+								if ( host = NIL ) then
+									raise Exception.Create('No such host "' + subjects1[j] );
+
+								if ( op = OP_ADD ) then
+								begin
+
+									db.bindSHO( service, host, optionName, optionValue );
+
+								end else
+								if ( op = OP_REMOVE ) then
+								begin
+
+									db.unbindSHO( service, host, optionName );
+
+								end;
+
+							end;
+
+						end;
+
+						db.commit();
+
+						result := '{"explain": ' + json_encode( explain ) + '}';
+
+						db.discardSnapshot();
+
+					except
+						On E: Exception do
+						begin
+							db.rollbackSnapshot();
+							raise;
+						end
+					end;
+
+				end;
+
+
+			end else
+				raise Exception.Create('Unexpected token "' + arg + '"' );
+
+		end else
+		begin
+			raise Exception.Create('Unexpected token "' + arg + '". Expected "FOR" at pos ' + IntToStr( query.currentArgumentIndex ) );
+		end;
+
+
+	end else
+	begin
+
+		if ( arg = '' ) then
+			raise Exception.Create('Unexpected end of query: Expected {SERVICE_NAME} or OPTION' );
+
+		serviceName := db.normalizeEntity( arg, ENTITY_SERVICE );
+
+		if ( serviceName = '' ) then
+			raise Exception.Create('Invalid service name: "' + arg + '"' );
+
+		arg := query.nextArg;
+
+		if ( arg <> '' ) then
+			raise Exception.Create('Expected end of query but found token "' + arg + '"' );
+
+		// ADD OR REMOVE A SERVICE
+		if ( op = OP_ADD ) then begin
+			explain := 'Create a new service with name "' + serviceName + '"';
+			
+			if ( passwordType = '' ) then begin
+				explain := explain + ' with password type MD5 (default)';
+				passwordType := 'md5';
+			end else
+				explain := explain + ' with password type ' + LOWERCASE( passwordType );
+
+		end else
+		if ( op = OP_REMOVE ) then
+			explain := 'Remove the service called "' + serviceName + '"'
+		else
+			raise Exception.Create( 'Unexpected OP!' );
+
+		if ( admin = FALSE ) then
+			raise Exception.Create('Access denied. This operation requires administrative context!' );
+
+		if ( op = OP_ADD ) and ( db.serviceExists( serviceName ) ) then
+			raise Exception.Create('Another service with that name "' + serviceName + '" allready exists!' )
+		else
+		if ( op = OP_REMOVE ) and ( not db.serviceExists( serviceName ) ) then
+			raise Exception.Create('No such service "' + serviceName + '"' );
+
+		db.createSnapshot();
+
+		try
+
+			if ( op = OP_ADD ) then
+			begin
+
+				service := db.createService( serviceName );
+				service.passwordType := passwordType;
+
+			end else
+			begin
+
+				service := db.getServiceByName( serviceName );
+
+				if ( service <> NIL ) then
+					service.remove();
+
+			end;
+
+			db.commit();
+
+			db.discardSnapshot();
+
+			result := '{"explain": ' + json_encode( explain ) + '}';
+
+		except
+			On E: Exception do
+			begin
+				db.rollbackSnapshot();
+				raise;
+			end
+		end;
+
+
+	end;
+
+
 end;
 
 function TPam2ExecutionContext.cmd_group  ( query: TQueryParser ): AnsiString;
@@ -1761,7 +2196,7 @@ begin
 
 					host := db.getHostByName( subjects[i] );
 
-					if ( useDefault ) and ( not host.default ) then
+					if ( useDefault ) and ( host.default <> iDefault ) then
 						match := FALSE;
 
 					if match then
@@ -1804,7 +2239,6 @@ end;
 function TPam2ExecutionContext.cmd_help( query: TQueryParser ): AnsiString;
 var arg: AnsiString;
 	helpFiles: TStrArray;
-	len: Integer;
 	helpPath: AnsiString;
 
 	info: TSearchRec;

@@ -69,7 +69,7 @@ begin
 	password := '';
 
 
-	for i := 1 to paramCount do
+	for i := 1 to len do
 	begin
 
 		arg := paramStr( i );

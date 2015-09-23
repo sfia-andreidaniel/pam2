@@ -11,7 +11,6 @@ type TPam2Group = class
 			_group_name: AnsiString;
 			_enabled: boolean;
 
-			saved: boolean;
 			needSave: boolean;
 			deleted: boolean;
 

@@ -1,7 +1,7 @@
 constructor TPam2User.Create( _db: TPam2DB; uid: integer; login_name: AnsiString; real_name: AnsiString; user_email: AnsiString; user_enabled: boolean; is_admin: boolean; pam2_password: AnsiString; isSaved: boolean );
 begin
-	saved := isSaved;
-	needSave := not saved;
+
+	needSave := not isSaved;
 	deleted := false;
 
 	db := _db;
@@ -18,7 +18,7 @@ end;
 
 constructor TPam2User.Create( _db: TPam2DB; uid: Integer );
 begin
-	saved := TRUE;
+
 	needSave := FALSE;
 	deleted := FALSE;
 	db := _db;
@@ -121,7 +121,6 @@ begin
 	db.addSnapshot( '_enabled: '     + IntToStr( Integer( _enabled ) ) );
 	db.addSnapshot( '_password: '    + _password );
 	db.addSnapshot( '_admin: '       + IntToStr( Integer( _admin ) ) );
-	db.addSnapshot( 'saved: '        + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: '     + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: '      + IntToStr( Integer( deleted ) ) );
 	db.addSnapshot( 'END' );
@@ -170,10 +169,6 @@ begin
 	if propName = '_admin' then
 	begin
 		_admin := Boolean( StrToInt( propValue ) );
-	end else
-	if propName = 'saved' then
-	begin
-		saved := Boolean( StrToInt( propValue ) );
 	end else
 	if propName = 'needSave' then
 	begin

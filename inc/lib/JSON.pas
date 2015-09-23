@@ -58,6 +58,8 @@ type
     function json_encode( data: Double ): AnsiString;
     function json_encode( data: TStrArray ): AnsiString;
 
+    function json_encode_object( data: TStrArray; const encodeValues: boolean = TRUE ): AnsiString;
+
 implementation
 
 
@@ -507,6 +509,42 @@ implementation
         
         end;
         result := result + ']';
+    end;
+
+    function json_encode_object( data: TStrArray; const encodeValues: boolean = TRUE ): AnsiString;
+    var len: integer;
+        i: integer;
+    begin
+        len := length(data);
+        
+        if (len mod 2) <> 0 then
+        begin
+            raise Exception.Create('json_encode_options: The length of the source must be even!');
+        end;
+
+        i := 0;
+
+        result := '{';
+
+        while ( i < len - 1 ) do
+        begin
+
+            result := result + json_encode( data[i] ) + ':';
+
+            if ( encodeValues ) then
+                result := result + json_encode( data[i+1] )
+            else
+                result := result + data[i+1];
+
+            if ( i < len - 2 ) then
+                result := result + ',';
+
+            i := i + 2;
+
+        end;
+
+        result := result + '}';
+
     end;
 
 end.

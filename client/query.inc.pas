@@ -1,6 +1,5 @@
 procedure do_query( query: TStrArray );
-var i: integer;
-    len: integer;
+var 
     ehost: TStrArray;
 begin
 
@@ -154,10 +153,8 @@ procedure cli_compute_text_display( realCommandLine: AnsiString; realCursorPos: 
 var i: Integer;
     j: Integer;
     len: Integer;
-    out: Integer;
     addLeft: AnsiString;
     addRight: AnsiString;
-    ch: AnsiString;
 begin
 		Len := Length( realCommandLine );
 
@@ -234,8 +231,6 @@ var x: integer;
 
     parser: TQueryParser;
     
-    maxx: Integer;
-
     renderCommand: AnsiString;
     renderCursorPos: Integer;
 

@@ -245,7 +245,7 @@ begin
 end;
 
 function TPam2Manager.getIniFilePath(): AnsiString;
-var udir : AnsiString; // user home directory
+{$ifdef unix} var udir : AnsiString; {$endif}
 begin
     
     // search of the config file is done in the following order

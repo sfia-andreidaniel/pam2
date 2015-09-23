@@ -3,8 +3,7 @@ begin
 
 	db := _db;
 
-	saved := isSaved;
-	needSave := not saved;
+	needSave := not isSaved;
 	deleted := FALSE;
 
 	_group_id := gid;
@@ -18,7 +17,6 @@ begin
 
 	db := _db;
 
-	saved := TRUE;
 	needSave := FALSE;
 	deleted := FALSE;
 
@@ -29,8 +27,6 @@ begin
 end;
 
 procedure TPam2Group.snapshot();
-var i: integer;
-    len: integer;
 begin
 
 	if ( _group_id = 0 ) then exit;
@@ -38,7 +34,6 @@ begin
 	db.addSnapshot( 'GROUP ' + IntToStr( _group_id )  );
 	db.addSnapshot( '_group_name: ' + _group_name );
 	db.addSnapshot( '_enabled: ' + IntToStr( Integer( _enabled ) ) );
-	db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
 
@@ -71,10 +66,6 @@ begin
 	if propName = '_enabled' then
 	begin
 		_enabled := Boolean( StrToInt( propValue ) );
-	end else
-	if propName = 'saved' then
-	begin
-		saved := Boolean( StrToInt( propValue ) );
 	end else
 	if propName = 'needSave' then
 	begin

@@ -1,42 +1,3 @@
-type TServiceUserPassword = record
-
-		service_id: integer;
-		password: AnsiString;
-		encType: byte; // CONSTANT ENCTYPE_*
-
-end;
-
-type TServiceHostGroupBinding = record
-		service_id: integer;
-		group_id: integer;
-		allow: boolean;
-end;
-
-type TServiceHostUserBinding = record
-		service_id: integer;
-		user_id: integer;
-		allow: boolean;
-end;
-
-type TServiceHostOptionsBinding = record
-		service_id: integer;
-		option_name: AnsiString;
-		option_value: AnsiString;
-end;
-
-type TServiceHostUserOptionBinding = record
-		service_id: integer;
-		user_id: integer;
-		option_name: AnsiString;
-		option_value: AnsiString;
-end;
-
-type TServiceGroupOptionBinding = record
-		service_id: integer;
-		group_id: integer;
-		option_name: AnsiString;
-		option_value: AnsiString;
-end;
 
 type TPam2ServiceList = Array of TPam2Service;
 
@@ -81,3 +42,22 @@ type TPam2HSUPermission = record
 end;
 
 type TPam2HSUPermission_List = Array of TPam2HSUPermission;
+
+{ SERVICE + OPTION binding }
+type TPam2ServiceOption = record
+	service: TPam2Service;
+	name: AnsiString;
+	value: AnsiString;
+end;
+
+type TPam2ServiceOption_List = Array of TPam2ServiceOption;
+
+{ SERVICE + HOST + OPTION binding }
+type TPam2ServiceHostOption = record
+	service: TPam2Service;
+	host: TPam2Host;
+	name: AnsiString;
+	value: AnsiString;
+end;
+
+type TPam2ServiceHostOption_List = Array of TPam2ServiceHostOption;

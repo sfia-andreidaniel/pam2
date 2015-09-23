@@ -11,7 +11,6 @@ type TPam2Host = class
 		    _host_name: AnsiString;
 		    _default_host: Boolean;
 
-			saved: boolean;
 			needSave: boolean;
 			deleted: boolean;
 

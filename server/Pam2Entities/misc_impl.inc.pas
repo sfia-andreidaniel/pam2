@@ -208,3 +208,41 @@ begin
 	end;
 
 end;
+
+// removes the element @position index, and returns the new length of the array
+function array_remove( var a: TPam2ServiceOption_List; index: Integer ): Integer;
+var i: Integer;
+begin
+	
+	result := Length( a );
+
+	if ( index >= 0 ) and ( index <= result - 1 ) then
+	begin
+		for i := index + 1 to result - 1 do
+		begin
+			a[ i - 1 ] := a[ i ];
+		end;
+		result := result - 1;
+		setLength( a, result );
+	end;
+
+end;
+
+// removes the element @position index, and returns the new length of the array
+function array_remove( var a: TPam2ServiceHostOption_List; index: Integer ): Integer;
+var i: Integer;
+begin
+	
+	result := Length( a );
+
+	if ( index >= 0 ) and ( index <= result - 1 ) then
+	begin
+		for i := index + 1 to result - 1 do
+		begin
+			a[ i - 1 ] := a[ i ];
+		end;
+		result := result - 1;
+		setLength( a, result );
+	end;
+
+end;

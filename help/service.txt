@@ -1,0 +1,10 @@
+# create or remove a service
+SERVICE ADD WITH PASSWORD_TYPE (PLAIN|MD5|CRYPT|PASSWORD|BIN) {SERVICE_NAME}
+SERVICE REMOVE {SERVICE_NAME}
+
+
+# add or remove an option to a service or services list or to a host or host list
+SERVICE (ADD|REMOVE)
+    OPTION {OPTION_NAME} [ VALUE {OPTION_VALUE} ]
+    FOR (SERVICE|SERVICES) {SERVICE_LIST}
+    [ON {HOST_LIST}]

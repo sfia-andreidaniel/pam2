@@ -3,8 +3,7 @@ begin
 
 	db := _db;
 
-	saved := isSaved;
-	needSave := not saved;
+	needSave := not isSaved;
 	deleted := FALSE;
 
 	_host_id := hid;
@@ -18,7 +17,6 @@ begin
 
 	db := _db;
 
-	saved := TRUE;
 	needSave := FALSE;
 	deleted := FALSE;
 
@@ -38,7 +36,6 @@ begin
 	db.addSnapshot( '_host_name: ' + _host_name );
 	db.addSnapshot( '_default_host: ' + IntToStr( Integer( _default_host ) ) );
 
-	db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
 	
@@ -71,10 +68,6 @@ begin
 	if propName = '_default_host' then
 	begin
 		_default_host := Boolean( StrToInt( propValue ) );
-	end else
-	if propName = 'saved' then
-	begin
-		saved := Boolean( StrToInt( propValue ) );
 	end else
 	if propName = 'needSave' then
 	begin
@@ -127,7 +120,7 @@ begin
 	begin
 		db.addExplanation( 'Rename host "' + _host_name + '" to "' + hName + '"' );
 		_host_name := hName;
-		saved := FALSE;
+		needSave := TRUE;
 	end;
 end;
 
@@ -161,7 +154,7 @@ begin
 
 		end;
 
-		saved := FALSE;
+		needSave := TRUE;
 
 	end;
 
@@ -195,6 +188,7 @@ begin
 		needSave := TRUE;
 		db.unbindHSG( self );
 		db.unbindHSU( self );
+		db.unbindSHO( self );
 	end;
 
 end;

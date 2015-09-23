@@ -39,3 +39,9 @@ const ENCTYPE_PLAIN         = 0;
       OP_UNSET              = 2;
       OP_ENABLE             = 3;
       OP_DISABLE            = 4;
+
+      PASSTYPE_PLAIN        = 0;
+      PASSTYPE_MD5          = 1;
+      PASSTYPE_CRYPT        = 2;
+      PASSTYPE_PASSWORD     = 3;
+      PASSTYPE_BIN          = 4; // for binary authentication keys

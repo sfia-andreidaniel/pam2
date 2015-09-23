@@ -5,18 +5,19 @@ type TPam2DB = class
 
 		protected
 
-			db: TSqlConnection;
+			db             : TSqlConnection;
 
-			hosts: Array of TPam2Host;
-			services: Array of TPam2Service;
-			groups: Array of TPam2Group;
-			users: Array of TPam2User;
+			hosts          : Array of TPam2Host;
+			services       : Array of TPam2Service;
+			groups         : Array of TPam2Group;
+			users          : Array of TPam2User;
 
-			sqlStatements: TStrArray;
-			explanations : TStrArray;
-			errors       : TStrArray;
+			sqlStatements  : TStrArray;
+			explanations   : TStrArray;
+			errors         : TStrArray;
 
-			snapshot     : TStrArray;
+			{ the in-memory dump state of db, which alows us to do rollback if something goes wrong }
+			snapshot       : TStrArray;
 
 			{ ( host, service, group, allow ) permission }
 			HSGPermissions : TPam2HSGPermission_List;
@@ -27,64 +28,76 @@ type TPam2DB = class
 			{ ( user, group ) binding }
 			UGBindings     : TPam2UGBinding_List;
 
-			procedure Load();
-			function  getDefaultHost(): TPam2Host;
-			function  generateRandomUserPassword(): AnsiString;
+			{ ( service, option ) binding }
+			SOBindings     : TPam2ServiceOption_List;
 
-			function  getAllUsersList(): TStrArray;
-			function  getAllGroupsList(): TStrArray;
-			function  getAllServicesList(): TStrArray;
-			function  getAllHostsList(): TStrArray;
+			{ ( service, host, option ) binding }
+			SHOBindings    : TPam2ServiceHostOption_List;
 
-			function  getHasErrors(): Boolean;
+			procedure Load;
+			function  getDefaultHost 			    : TPam2Host;
+			function  generateRandomUserPassword    : AnsiString;
+
+			function  getAllUsersList 				: TStrArray;
+			function  getAllGroupsList				: TStrArray;
+			function  getAllServicesList			: TStrArray;
+			function  getAllHostsList				: TStrArray;
+
+			function  getHasErrors					: Boolean;
 			procedure setHasErrors( on: Boolean );
 
-			procedure removeAndDisposeDeletedObjects();
+			procedure removeAndDisposeDeletedObjects;
 			procedure dispatchSnapshotLine( snapshotLine: AnsiString );
+
+			function  getBinDump(): AnsiString;
 
 		public
 
 			constructor Create( _db: TSqlConnection );
 			destructor  Free();
 
-			property defaultHost      : TPam2Host read getDefaultHost;
+			property defaultHost      : TPam2Host 		read getDefaultHost;
 			
-			property allUsers         : TStrArray read getAllUsersList;
-			property allHosts         : TStrArray read getAllHostsList;
-			property allServices      : TStrArray read getAllServicesList;
-			property allGroups        : TStrArray read getAllGroupsList;
+			property allUsers         : TStrArray 		read getAllUsersList;
+			property allHosts         : TStrArray 		read getAllHostsList;
+			property allServices      : TStrArray 		read getAllServicesList;
+			property allGroups        : TStrArray 		read getAllGroupsList;
 
-			property hasErrors        : Boolean   read getHasErrors write setHasErrors;
-			property errorMessages    : TStrArray read errors;
+			property hasErrors        : Boolean   		read getHasErrors 
+														write setHasErrors;
+
+			property errorMessages    : TStrArray 		read errors;
+
+			property binaryDump       : AnsiString      read getBinDump;
 
 
-			function getUserById      ( userId: Integer ): TPam2User;
-			function getUserByName    ( loginName: AnsiString ): TPam2User;
-			function getUserByEmail   ( emailAddress: AnsiString ): TPam2User;
+			function getUserById      ( userId: Integer )											: TPam2User;
+			function getUserByName    ( loginName: AnsiString )										: TPam2User;
+			function getUserByEmail   ( emailAddress: AnsiString )									: TPam2User;
 
-			function getGroupById     ( groupId: Integer ): TPam2Group;
-			function getGroupByName   ( groupName: AnsiString ): TPam2Group;
+			function getGroupById     ( groupId: Integer )											: TPam2Group;
+			function getGroupByName   ( groupName: AnsiString )										: TPam2Group;
 
-			function getHostById      ( hostId: Integer ): TPam2Host;
-			function getHostByName    ( hostName: AnsiString ): TPam2Host;
+			function getHostById      ( hostId: Integer )											: TPam2Host;
+			function getHostByName    ( hostName: AnsiString )										: TPam2Host;
 
-			function getServiceById   ( serviceId: Integer ): TPam2Service;
-			function getServiceByName ( serviceName: AnsiString ): TPam2Service;
+			function getServiceById   ( serviceId: Integer )										: TPam2Service;
+			function getServiceByName ( serviceName: AnsiString )									: TPam2Service;
 
-			function userExists       ( userName: AnsiString; const ignoreUserId: integer = 0 ): Boolean;
-			function userExists       ( userId: Integer; const ignoreUserId: integer = 0 ): Boolean;
-			function userExistsByEmail( emailAddress: string; const ignoreUserId: integer = 0 ): Boolean;
+			function userExists       ( userName: AnsiString; const ignoreUserId: integer = 0 )		: Boolean;
+			function userExists       ( userId: Integer; const ignoreUserId: integer = 0 )		 	: Boolean;
+			function userExistsByEmail( emailAddress: string; const ignoreUserId: integer = 0 )		: Boolean;
 
-			function groupExists      ( groupName: AnsiString; const ignoreGroupId: integer = 0 ): Boolean;
-			function groupExists      ( groupId: Integer; const ignoreGroupId: integer = 0 ): Boolean;
+			function groupExists      ( groupName: AnsiString; const ignoreGroupId: integer = 0 )	: Boolean;
+			function groupExists      ( groupId: Integer; const ignoreGroupId: integer = 0 )		: Boolean;
 			
-			function hostExists       ( hostName: AnsiString; const ignoreHostId: integer = 0 ): Boolean;
-			function hostExists       ( hostId: Integer; const ignoreHostId: Integer = 0 ): Boolean;
+			function hostExists       ( hostName: AnsiString; const ignoreHostId: integer = 0 )		: Boolean;
+			function hostExists       ( hostId: Integer; const ignoreHostId: Integer = 0 )			: Boolean;
 			
 			function serviceExists    ( serviceName: AnsiString; const ignoreServiceId: integer = 0 ): Boolean;
-			function serviceExists    ( serviceId: Integer; const ignoreServiceId: Integer = 0 ): Boolean;
+			function serviceExists    ( serviceId: Integer; const ignoreServiceId: Integer = 0 )	: Boolean;
 
-			function  encryptPassword ( password: AnsiString ): AnsiString;
+			function  encryptPassword ( password: AnsiString )										: AnsiString;
 
 
 			// SNAPSHOTS, STATEMENTS, ETC. INTERNAL STUFF
@@ -96,7 +109,7 @@ type TPam2DB = class
 
 			// Context execution
 
-			function createContext    ( userName: ansiString; password: AnsiString ): TPam2ExecutionContext;
+			function createContext    ( userName: ansiString; password: AnsiString )				: TPam2ExecutionContext;
 
 			// CREATE FUNCTIONS
 
@@ -155,6 +168,28 @@ type TPam2DB = class
 
 			function  getUGBindings    ( user: TPam2User   ): TPam2UGBinding_List;
 			function  getUGBindings    ( group: TPam2Group ): TPam2UGBinding_List;
+
+			{ SERVICE + OPTIONS bindings routines }
+			procedure bindSO           ( service: TPam2Service; option: AnsiString; value: AnsiString );
+			procedure bindSO           ( serviceId: Integer; option: AnsiString; value: AnsiString );
+			procedure unbindSO         ( service: TPam2Service; option: AnsiString );
+			procedure unbindSO         ( service: TPam2Service );
+			function  getSOBindings    ( service: TPam2Service ): TPam2ServiceOption_List;
+
+			{ SERVICE + HOST + OPTIONS binding routines }
+			procedure bindSHO          ( service: TPam2Service; host: TPam2Host; option: AnsiString; value: AnsiString );
+			procedure bindSHO          ( serviceId: Integer;    hostId: Integer; option: AnsiString; value: AnsiString );
+			procedure unbindSHO        ( service: TPam2service; host: TPam2Host );
+			procedure unbindSHO        ( service: TPam2Service );
+			procedure unbindSHO        ( host: TPam2Host );
+
+			procedure unbindSHO        ( service: TPam2Service; option: AnsiString );
+			procedure unbindSHO        ( host:    TPam2Host;    option: AnsiString );
+			procedure unbindSHO        ( service: TPam2Service; host: TPam2Host; option: AnsiString );
+
+			function  getSHOBindings   ( service: TPam2Service; host: TPam2Host ) 		: TPam2ServiceHostOption_List;
+			function  getSHOBindings   ( service: TPam2Service ) 						: TPam2ServiceHostOption_List;
+			function  getSHOBindings   ( host: TPam2Host )   							: TPam2ServiceHostOption_List;
 
 
 			{ SNAPSHOT FUNCTIONALITY }

@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.44, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.5.42, for Win32 (x86)
 --
 -- Host: localhost    Database: pam
 -- ------------------------------------------------------
--- Server version	5.5.44-0ubuntu0.14.04.1
+-- Server version	5.5.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -28,7 +28,7 @@ CREATE TABLE `group` (
   `group_enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`group_id`),
   UNIQUE KEY `group_name_UNIQUE` (`group_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -37,7 +37,7 @@ CREATE TABLE `group` (
 
 LOCK TABLES `group` WRITE;
 /*!40000 ALTER TABLE `group` DISABLE KEYS */;
-INSERT INTO `group` VALUES (1,'administrators',1),(2,'powerusers',1),(3,'users',1),(4,'web',1);
+INSERT INTO `group` VALUES (1,'administrators',1),(2,'powerusers',1),(3,'users',1),(4,'web',1),(5,'a_new_group',1);
 /*!40000 ALTER TABLE `group` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -61,7 +61,7 @@ CREATE TABLE `group_users` (
 
 LOCK TABLES `group_users` WRITE;
 /*!40000 ALTER TABLE `group_users` DISABLE KEYS */;
-INSERT INTO `group_users` VALUES (1,1),(1,2);
+INSERT INTO `group_users` VALUES (1,1),(1,2),(2,1),(3,1),(4,1),(5,1),(5,2),(5,6);
 /*!40000 ALTER TABLE `group_users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -101,9 +101,10 @@ DROP TABLE IF EXISTS `service`;
 CREATE TABLE `service` (
   `service_id` int(11) NOT NULL AUTO_INCREMENT,
   `service_name` char(16) NOT NULL,
+  `password_type` enum('PLAIN','MD5','CRYPT','PASSWORD','BIN') NOT NULL DEFAULT 'MD5',
   PRIMARY KEY (`service_id`),
   UNIQUE KEY `service_name_UNIQUE` (`service_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -112,7 +113,7 @@ CREATE TABLE `service` (
 
 LOCK TABLES `service` WRITE;
 /*!40000 ALTER TABLE `service` DISABLE KEYS */;
-INSERT INTO `service` VALUES (1,'pam');
+INSERT INTO `service` VALUES (1,'pam','MD5'),(4,'pwd_svc','PASSWORD');
 /*!40000 ALTER TABLE `service` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -163,6 +164,7 @@ CREATE TABLE `service_host_options` (
 
 LOCK TABLES `service_host_options` WRITE;
 /*!40000 ALTER TABLE `service_host_options` DISABLE KEYS */;
+INSERT INTO `service_host_options` VALUES (1,1,'login_hours_min','9');
 /*!40000 ALTER TABLE `service_host_options` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -212,6 +214,7 @@ CREATE TABLE `service_options` (
 
 LOCK TABLES `service_options` WRITE;
 /*!40000 ALTER TABLE `service_options` DISABLE KEYS */;
+INSERT INTO `service_options` VALUES (1,'home_dir',''),(1,'login_hours_min','9');
 /*!40000 ALTER TABLE `service_options` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -225,8 +228,7 @@ DROP TABLE IF EXISTS `service_user_password`;
 CREATE TABLE `service_user_password` (
   `service_id` int(11) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
-  `service_password` char(48) NOT NULL,
-  `service_password_encryption` enum('PLAIN','MD5','CRYPT','PASSWORD') NOT NULL DEFAULT 'PLAIN',
+  `service_password` varchar(16384) DEFAULT NULL,
   PRIMARY KEY (`service_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -258,7 +260,7 @@ CREATE TABLE `user` (
   PRIMARY KEY (`user_id`),
   KEY `user_id` (`user_id`),
   KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -267,7 +269,7 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES (1,'admin','The Boss','boss@business.com',1,1,'21232f297a57a5a743894a0e4a801fc3'),(2,'joe','John Doe','joe@business.com',1,0,'8ff32489f92f33416694be8fdc2d4c22');
+INSERT INTO `user` VALUES (1,'admin','The Boss','boss@business.com',1,1,'21232f297a57a5a743894a0e4a801fc3'),(2,'joe','John Doe','joe@business.com',1,0,'8ff32489f92f33416694be8fdc2d4c22'),(6,'johnny','John Doe','',1,1,'200ceb26807d6bf99fd6f4f0d1ca54d4');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -280,4 +282,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2015-09-15 22:51:12
+-- Dump completed on 2015-09-23 17:39:35

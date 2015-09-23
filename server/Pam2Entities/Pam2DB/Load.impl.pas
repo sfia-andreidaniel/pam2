@@ -168,7 +168,7 @@ begin
 			Transaction := FTransaction;
 			ReadOnly := TRUE;
 			SQL.Clear;
-			SQL.Add('SELECT service_id, service_name FROM `service`' );
+			SQL.Add('SELECT service_id, service_name, password_type FROM `service`' );
 		end;
 
 		FQuery.Open;
@@ -185,6 +185,7 @@ begin
 				self,
 				FQuery.FieldByName( 'service_id' ).asInteger,
 				FQuery.FieldByName( 'service_name' ).asString,
+				FQuery.FieldByName( 'password_type').asString,
 				TRUE
 			);
 
@@ -223,6 +224,70 @@ begin
 		begin
 
 			bindUG( FQuery.FieldByName( 'user_id' ).asInteger, FQuery.FieldByName('group_id').asInteger );
+			FQuery.Next;
+
+		end;
+
+		FQuery.Free;
+		FTransaction.Free;
+
+// LOADING SERVICE + OPTIONS BINDINGS
+		FTransaction := TSQLTransaction.Create( NIL );
+
+		with FTransaction do
+		begin
+			Database := db;
+			StartTransaction;
+		end;
+
+		FQuery := TSQLQuery.Create(NIL);
+		with FQuery do
+		begin
+			Database := db;
+			Transaction := FTransaction;
+			ReadOnly := TRUE;
+			SQL.Clear;
+			SQL.Add('SELECT service_id, option_name, default_value FROM service_options' );
+		end;
+
+		FQuery.Open;
+
+		while not FQuery.EOF do
+		begin
+
+			bindSO( FQuery.FieldByName( 'service_id' ).asInteger, FQuery.FieldByName( 'option_name').asString, FQuery.FieldByName( 'default_value' ).asString );
+			FQuery.Next;
+
+		end;
+
+		FQuery.Free;
+		FTransaction.Free;
+
+// LOADING SERVICE + HOST + OPTIONS BINDINGS
+		FTransaction := TSQLTransaction.Create( NIL );
+
+		with FTransaction do
+		begin
+			Database := db;
+			StartTransaction;
+		end;
+
+		FQuery := TSQLQuery.Create(NIL);
+		with FQuery do
+		begin
+			Database := db;
+			Transaction := FTransaction;
+			ReadOnly := TRUE;
+			SQL.Clear;
+			SQL.Add('SELECT service_id, host_id, option_name, option_value FROM service_host_options' );
+		end;
+
+		FQuery.Open;
+
+		while not FQuery.EOF do
+		begin
+
+			bindSHO( FQuery.FieldByName( 'service_id' ).asInteger, FQuery.FieldByName( 'host_id' ).asInteger, FQuery.FieldByName( 'option_name').asString, FQuery.FieldByName( 'option_value' ).asString );
 			FQuery.Next;
 
 		end;
@@ -319,6 +384,8 @@ begin
 		Console.log('-', Length(hosts), 'hosts' );
 		Console.log('-', Length(services), 'services' );
 		Console.log('-', Length(UGBindings), 'UG bindings' );
+		Console.log('-', Length(SOBindings), 'SO bindings' );
+		Console.log('-', Length(SHOBindings), 'SHO bindings' );
 		Console.log('-', Length(HSGPermissions), 'HSG permissions' );
 		Console.log('-', Length(HSUPermissions), 'HSU permissions' );
 

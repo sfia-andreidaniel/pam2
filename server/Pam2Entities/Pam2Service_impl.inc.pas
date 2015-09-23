@@ -1,14 +1,34 @@
-constructor TPam2Service.Create( _db: TPam2DB; sid: integer; sname: AnsiString; isSaved: boolean );
+constructor TPam2Service.Create( _db: TPam2DB; sid: integer; sname: AnsiString; password_type: AnsiString; isSaved: boolean );
+var nptype: AnsiString;
 begin
 
 	db := _db;
 
-	saved := isSaved;
-	needSave := not saved;
+	needSave := not isSaved;
 	deleted := FALSE;
 
 	_service_id := sid;
 	_service_name := sname;
+
+	nptype := trim( lowercase( password_type ) );
+
+	case nptype of
+		'md5': begin
+			_password_type := PASSTYPE_MD5;
+		end;
+		'crypt': begin
+			_password_type := PASSTYPE_CRYPT;
+		end;
+		'password': begin
+			_password_type := PASSTYPE_PASSWORD;
+		end;
+		'bin': begin
+			_password_type := PASSTYPE_BIN;
+		end
+		else begin
+			_password_type := PASSTYPE_PLAIN;
+		end;
+	end;
 
 end;
 
@@ -17,12 +37,13 @@ begin
 
 	db := _db;
 
-	saved := TRUE;
 	needSave := FALSE;
 	deleted := FALSE;
 
 	_service_id := sid;
 	_service_name := '';
+	_password_type := PASSTYPE_PLAIN;
+
 end;
 
 procedure TPam2Service.snapshot();
@@ -33,8 +54,8 @@ begin
 	db.addSnapshot( 'SERVICE ' + IntToStr( _service_id ) );
 
 	db.addSnapshot( '_service_name: ' + _service_name );
+	db.addSnapshot( '_password_type: ' + IntToStr(_password_type ) );
 	
-	db.addSnapshot( 'saved: ' + IntToStr( Integer( saved ) ) );
 	db.addSnapshot( 'needSave: ' + IntToStr( Integer( needSave ) ) );
 	db.addSnapshot( 'deleted: ' + IntToStr( Integer( deleted ) ) );
 	
@@ -64,9 +85,9 @@ begin
 	begin
 		_service_name := propValue;
 	end else
-	if propName = 'saved' then
+	if propName = '_password_type' then
 	begin
-		saved := Boolean( StrToInt( propValue ) );
+		_password_type := StrToInt( propValue );
 	end else
 	if propName = 'needSave' then
 	begin
@@ -82,8 +103,45 @@ end;
 
 function TPam2Service.Save(): Boolean;
 begin
-	result := TRUE;
-	needSave := FALSE;
+	if ( needSave = FALSE ) then
+	begin
+		result := TRUE;
+	end else
+	begin
+
+		if ( not deleted ) then
+		begin
+
+			if ( _service_id = 0 ) then
+			begin
+
+				db.addSQLStatement(
+					'INSERT INTO `service` ( service_name, password_type ) VALUES (' + json_encode( _service_name ) + ', ' + json_encode( passwordType ) + ')'
+				);
+
+			end else
+			begin
+
+				db.addSQLStatement(
+					'UPDATE `service` SET service_name = ' + json_encode( _service_name ) + ', password_type = ' + json_encode( passwordType ) + ' WHERE service_id = ' + IntToStr( _service_id ) + ' LIMIT 1'
+				);
+
+			end;
+
+		end else
+		begin
+
+			if ( _service_id <> 0 ) then
+			begin
+				db.addSQLStatement( 'DELETE FROM `service` WHERE service_id = ' + IntToStr( _service_id ) + ' LIMIT 1' );
+			end;
+
+		end;
+
+		result := TRUE;
+		needSave := FALSE;
+
+	end;
 end;
 
 destructor TPam2Service.Free();
@@ -121,7 +179,7 @@ begin
 	begin
 		db.addExplanation( 'Rename service "' + _service_name + '" to "' + sName + '"' );
 		_service_name := sName;
-		saved := FALSE;
+		needSave := TRUE;
 	end;
 
 end;
@@ -154,6 +212,8 @@ begin
 		needSave := TRUE;
 		db.unbindHSG( self );
 		db.unbindHSU( self );
+		db.unbindSO( self );
+		db.unbindSHO( self );
 	end;
 
 end;
@@ -175,9 +235,140 @@ begin
 end;
 
 function TPam2Service._toJSON(): AnsiString;
+var opts: TStrArray;
+    bindings: TPam2ServiceOption_List;
+    i: Integer;
+    len: Integer;
 begin
 	result := '{"type":"service",';
 	result := result + '"id":' + json_encode(_service_id) + ',';
-	result := result + '"name":' + json_encode(_service_name);
+	result := result + '"name":' + json_encode(_service_name) + ',';
+	result := result + '"passwordType":' + json_encode( passwordType ) + ',';
+
+	bindings := db.getSOBindings( self );
+
+	len := length( bindings );
+
+	setLength( opts, len * 2 );
+
+	for i := 0 to len - 1 do
+	begin
+
+		opts[ i * 2 ] := bindings[i].name;
+		opts[ i * 2 + 1 ] := bindings[i].value;
+
+	end; 
+
+	result := result + '"options": ' + json_encode_object( opts );
+
 	result := result + '}';
+end;
+
+function TPam2Service._getOptionsNames: TStrArray;
+var i: Integer;
+    Len: Integer;
+    bindings: TPam2ServiceOption_List;
+begin
+	bindings := db.getSOBindings( self );
+	Len := Length( bindings );
+	setLength( result, Len );
+	
+	for i := 0 To Len - 1 do
+		result[i] := bindings[i].name;
+
+	setLength( bindings, 0 );
+end;
+
+procedure TPam2Service.setOption( optionName: AnsiString; optionValue: AnsiString );
+var lcOption: AnsiString;
+    lnOption: AnsiString;
+begin
+
+	lcOption := trim( lowerCase( optionName ) );
+	lnOption := normalize( lcOption, ENTITY_SERVICE_OPTION );
+
+	if ( lcOption <> '' ) and ( lnOption = lcOption ) then
+	begin
+
+		db.bindSO( self, lcOption, optionValue );
+
+	end else
+		raise Exception.Create('Invalid service option name "' + optionName + '"' );
+
+end;
+
+function TPam2Service._getOptions: TPam2ServiceOption_List;
+begin
+	result := db.getSOBindings( self );
+end;
+
+function TPam2Service.hasOption( optionName: AnsiString ): Boolean;
+var opts: TPam2ServiceOption_List;
+    i: Integer;
+    Len: Integer;
+    optName: AnsiString;
+begin
+
+	optName := trim( lowerCase( optionName ) );
+	opts := _getOptions();
+	Len := Length( opts );
+
+	result := FALSE;
+
+	for i := 0 to Len - 1 do
+		if ( opts[i].name = optName ) then
+		begin
+			result := TRUE;
+			break;
+		end;
+
+end;
+
+function TPam2Service._getPasswordType(): AnsiString;
+begin
+	result := '';
+
+	case _password_type of
+      PASSTYPE_PLAIN:    result := 'plain';
+      PASSTYPE_MD5:      result := 'md5';
+      PASSTYPE_CRYPT:    result := 'crypt';
+      PASSTYPE_PASSWORD: result := 'password';
+      PASSTYPE_BIN:      result := 'bin';
+    end;
+end;
+
+procedure TPam2Service._setPasswordType( passType: AnsiString );
+var lcPass: AnsiString;
+	newPassType: byte;
+begin
+
+	lcPass := LowerCase( trim( passType ) );
+
+	newPassType := PASSTYPE_PLAIN;
+
+	case lcPass of
+		'md5': begin
+			newPassType := PASSTYPE_MD5;
+		end;
+		'crypt': begin
+			newPassType := PASSTYPE_CRYPT;
+		end;
+		'password': begin
+			newPassType := PASSTYPE_PASSWORD;
+		end;
+		'bin': begin
+			newPassType := PASSTYPE_BIN;
+		end
+		else begin
+			newPassType := PASSTYPE_PLAIN;
+		end;
+	end;
+
+	if ( newPassType <> _password_type ) then
+	begin
+		_password_type := newPassType;
+		db.addExplanation( 'Set service password type of "' + passwordType + '" to service "' + serviceName + '"' );
+		needSave := TRUE;
+	end;
+
 end;

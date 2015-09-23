@@ -16,7 +16,6 @@ type TPam2User = class
 			_admin: boolean;
 			_password: AnsiString;
 
-			saved: boolean;
 			needSave: boolean;
 			deleted: boolean;
 
